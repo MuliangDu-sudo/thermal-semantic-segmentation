@@ -89,7 +89,7 @@ class ResNet(nn.Module):
     def __init__(self, block, layers):
         self.inplanes = 64
         super(ResNet, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
+        self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)
         self.bn1 = nn.BatchNorm2d(64, affine=affine_par)
         for i in self.bn1.parameters():
@@ -179,7 +179,7 @@ class Deeplab(nn.Module):
         ]
 
 
-def deeplabv2_resnet101(num_classes=19, pretrained_backbone=True):
+def deeplabv2_resnet101_thermal(num_classes=19, pretrained_backbone=True):
     """Constructs a DeepLabV2 model with a ResNet-101 backbone.
 
      Args:

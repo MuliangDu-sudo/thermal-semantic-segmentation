@@ -1,6 +1,11 @@
 from typing import Optional, List
 import torch
 import random
+import os
+from torch import nn
+from torch.nn import init
+import functools
+
 
 class AverageMeter(object):
     r"""Computes and stores the average and current value.
@@ -41,6 +46,67 @@ def set_requires_grad(net, requires_grad=False):
     """
     for param in net.parameters():
         param.requires_grad = requires_grad
+
+
+class Identity(nn.Module):
+    def forward(self, x):
+        return x
+
+
+def get_norm_layer(norm_type='instance'):
+    """Return a normalization layer
+
+    Parameters:
+        norm_type (str) -- the name of the normalization layer: batch | instance | none
+
+    For BatchNorm, we use learnable affine parameters and track running statistics (mean/stddev).
+    For InstanceNorm, we do not use learnable affine parameters. We do not track running statistics.
+    """
+    if norm_type == 'batch':
+        norm_layer = functools.partial(nn.BatchNorm2d, affine=True, track_running_stats=True)
+    elif norm_type == 'instance':
+        norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
+    elif norm_type == 'none':
+        def norm_layer(x): return Identity()
+    else:
+        raise NotImplementedError('normalization layer [%s] is not found' % norm_type)
+    return norm_layer
+
+
+def init_weights(net, init_type='normal', init_gain=0.02):
+    """Initialize network weights.
+
+    Args:
+        net (torch.nn.Module): network to be initialized
+        init_type (str): the name of an initialization method. Choices includes: ``normal`` |
+            ``xavier`` | ``kaiming`` | ``orthogonal``
+        init_gain (float): scaling factor for normal, xavier and orthogonal.
+
+    'normal' is used in the original CycleGAN paper. But xavier and kaiming might
+    work better for some applications.
+    """
+    def init_func(m):  # define the initialization function
+        classname = m.__class__.__name__
+        if hasattr(m, 'weight') and (classname.find('Conv') != -1 or classname.find('Linear') != -1):
+            if init_type == 'normal':
+                init.normal_(m.weight.data, 0.0, init_gain)
+            elif init_type == 'xavier':
+                init.xavier_normal_(m.weight.data, gain=init_gain)
+            elif init_type == 'kaiming':
+                init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
+            elif init_type == 'orthogonal':
+                init.orthogonal_(m.weight.data, gain=init_gain)
+            else:
+                raise NotImplementedError('initialization method [%s] is not implemented' % init_type)
+            if hasattr(m, 'bias') and m.bias is not None:
+                init.constant_(m.bias.data, 0.0)
+        elif classname.find('BatchNorm2d') != -1:  # BatchNorm Layer's weight is not a matrix; only normal distribution applies.
+            init.normal_(m.weight.data, 1.0, init_gain)
+            init.constant_(m.bias.data, 0.0)
+
+    print('initialize network with %s' % init_type)
+    net.apply(init_func)  # apply the initialization function <init_func>
+
 
 class ImagePool:
     """An image buffer that stores previously generated images.
@@ -91,3 +157,50 @@ class ImagePool:
                     return_images.append(image)
         return_images = torch.cat(return_images, 0)   # collect all the images and return
         return return_images
+
+
+def cityscapes_txt(root, data_folder, split):
+    """
+
+    :param root: str, root directory
+    :param data_folder: str, image(leftImg8bit) or label(gtFine_labelIds)
+    :param split: str, train, eval, test
+    :return: txt file of files paths
+    """
+    im_dir: str = os.path.join(root, data_folder, split)
+    list_file = open(r"{}/image_list/{}_{}.txt".format(root, data_folder, split), "w+")
+    if data_folder == 'leftImg8bit':
+        for dirpath, dirnames, filenames in os.walk(im_dir):
+            for filename in filenames:
+                list_file.write(os.path.join(dirpath, filename)+'\n')
+    elif data_folder == 'gtFine':
+        for dirpath, dirnames, filenames in os.walk(im_dir):
+            for filename in filenames:
+                if filename.endswith('gtFine_labelIds.png'):
+                    list_file.write(os.path.join(dirpath, filename)+'\n')
+    list_file.close()
+
+
+def flir_txt(root, split, data_folder='images'):
+    """
+
+    :param root: str. path to the target dataset folder.
+    :param split: str. train or test.
+    :param data_folder: image or label. Only for the test set.
+    :return:
+    """
+    if split == 'train':
+        im_dir: str = os.path.join(root, split)
+    elif split == 'test':
+        im_dir: str = os.path.join(root, split, data_folder)
+    else:
+        raise ValueError('path does not exist.')
+
+    if split == 'train':
+        list_file = open(r"{}/image_list/train.txt".format(root), "w+")
+    else:
+        list_file = open(r"{}/image_list/test_{}.txt".format(root, data_folder), "w+")
+    for dirpath, dirnames, filenames in os.walk(im_dir):
+        for filename in filenames:
+            list_file.write(os.path.join(dirpath, filename)+'\n')
+    list_file.close()

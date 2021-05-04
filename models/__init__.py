@@ -1,2 +1,2 @@
-from discriminators import *
-from generators import *
+from .discriminators import *
+from .generators import *
