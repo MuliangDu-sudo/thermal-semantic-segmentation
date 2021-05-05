@@ -5,7 +5,7 @@ from data import Cityscapes, TrainTDataset
 from torch.utils.data import DataLoader
 from models import discriminators, generators, semantic_segmentation_models, thermal_semantic_segmentation_models
 from itertools import chain
-from train import train, predict
+from train import train
 from options import train_parse
 from torchvision import transforms as TT
 

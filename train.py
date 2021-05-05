@@ -32,20 +32,23 @@ class NormalizeAndTranspose:
     First, normalize a tensor image with mean and standard deviation.
     Then, convert the shape (H x W x C) to shape (C x H x W).
     """
-    def __init__(self, mean=(104.00698793, 116.66876762, 122.67891434)):
+    def __init__(self, domain, mean):
         self.mean = np.array(mean, dtype=np.float32)
+        self.domain = domain
 
     def __call__(self, image):
         if isinstance(image, Image.Image):
             image = np.asarray(image, np.float32)
-            # change to BGR
-            image = image[:, :, ::-1]
+            if self.domain == 'source':
+                # change to BGR
+                image = image[:, :, ::-1]
             # normalize
             image -= self.mean
             image = image.transpose((2, 0, 1)).copy()
         elif isinstance(image, torch.Tensor):
-            # change to BGR
-            image = image[:, :, [2, 1, 0]]
+            if self.domain == 'source':
+                # change to BGR
+                image = image[:, :, [2, 1, 0]]
             # normalize
             image -= torch.from_numpy(self.mean).to(image.device)
             image = image.permute((2, 0, 1))
@@ -54,19 +57,28 @@ class NormalizeAndTranspose:
         return image
 
 
-def tensor_transmit(denormalize):
+def tensor_transmit(domain):
+    denormalize = ()
+    mean = ()
+    if domain == 'source':
+        denormalize = (0.5, 0.5, 0.5)
+        mean = (104.00698793, 116.66876762, 122.67891434)
+    elif domain == 'target':
+        denormalize = (0.5,)
+        mean = (116.66876762,)
     cycle_gan_tensor_to_segmentation_tensor = T.Compose([
         Denormalize(denormalize, denormalize),
         T.Lambda(lambda image: image.mul(255).permute((1, 2, 0))),
-        NormalizeAndTranspose()
+        NormalizeAndTranspose(domain=domain, mean=mean)
     ])
+
     return cycle_gan_tensor_to_segmentation_tensor
 
 
-def predict(image, model, device, denormalize):
-    #squeezed = image.squeeze()
-    #image = tensor_transmit(denormalize)(image.squeeze())
-    #image = image.unsqueeze(dim=0).to(device)
+def predict(image, model, device, domain):
+
+    image = tensor_transmit(domain)(image.squeeze(dim=0))
+    image = image.unsqueeze(dim=0).to(device)
     prediction = model(image)
 
     return torch.nn.Upsample(size=(256, 512), mode='bilinear', align_corners=True)(prediction)
@@ -158,12 +170,12 @@ def train(s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss
         # loss_identity_s = identity_loss_func(identity_s, real_s) * 5
         # Semantic loss *1 is trade off semantic
 
-        pred_real_s = predict(real_s, sem_net_s, device, (0.5, 0.5, 0.5))
-        pred_fake_t = predict(fake_t, sem_net_t, device, (0.5,))
+        pred_real_s = predict(real_s, sem_net_s, device, 'source')
+        pred_fake_t = predict(fake_t, sem_net_t, device, 'target')
 
         loss_semantic_s2t = sem_loss_func(pred_fake_t, label_s.long()) * 1
-        pred_fake_s = predict(fake_s, sem_net_s, device, (0.5, 0.5, 0.5))
-        pred_real_t = predict(real_t, sem_net_t, device, (0.5,))
+        pred_fake_s = predict(fake_s, sem_net_s, device, 'source')
+        pred_real_t = predict(real_t, sem_net_t, device, 'target')
         loss_semantic_t2s = sem_loss_func(pred_fake_s, pred_real_t.max(1).indices) * 1
         # combined loss and calculate gradients
         # loss_g = loss_g_s2t + loss_g_t2s + loss_cycle_s + loss_cycle_t + loss_identity_s + loss_identity_t + \
