@@ -8,6 +8,7 @@ import torchvision.transforms.transforms as T
 from typing import ClassVar, Sequence, List, Tuple
 import numpy as np
 
+
 class MultipleApply:
     """Apply a list of transformations to an image and get multiple transformed images.
 

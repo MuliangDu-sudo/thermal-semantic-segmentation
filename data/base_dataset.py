@@ -89,7 +89,6 @@ class BaseDataset(data.Dataset):
         image = Image.open(os.path.join(image_name)).convert('RGB')  # 2048x1024
         label = Image.open(os.path.join(label_name))
         image, label = self.transforms(image, label)
-        print("image tensor in dataset: " + str(image.size()))
         # remap label
         if isinstance(label, torch.Tensor):
             label = label.numpy()
@@ -98,7 +97,6 @@ class BaseDataset(data.Dataset):
         if self.id_to_train_id:
             for k, v in self.id_to_train_id.items():
                 label_copy[label == k] = v
-
         return image, label_copy.copy()
 
     @property

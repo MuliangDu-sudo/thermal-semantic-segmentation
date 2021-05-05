@@ -1,8 +1,9 @@
-from utils import AverageMeter, set_requires_grad
+from utils import AverageMeter, set_requires_grad, ProgressMeter
 from torchvision import transforms as T
 import numpy as np
 import torch
 from PIL import Image
+import time
 
 
 class Denormalize(T.Normalize):
@@ -63,11 +64,11 @@ def tensor_transmit(denormalize):
 
 
 def predict(image, model, device, denormalize):
-    squeezed = image.squeeze()
+    #squeezed = image.squeeze()
     #image = tensor_transmit(denormalize)(image.squeeze())
     #image = image.unsqueeze(dim=0).to(device)
     prediction = model(image)
-    print("prediction size: " + str(prediction.size()))
+
     return torch.nn.Upsample(size=(256, 512), mode='bilinear', align_corners=True)(prediction)
 
 
@@ -78,7 +79,7 @@ def predict_(args):
 
 
 def train(s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss_func, cycle_loss_func,
-          identity_loss_func, sem_loss_func, optim_g, optim_d, fake_s_pool, fake_t_pool, device):
+          identity_loss_func, sem_loss_func, optim_g, optim_d, fake_s_pool, fake_t_pool, device, epoch):
     """
     :param args: parser
     :param s_data: source train dataloader
@@ -98,7 +99,8 @@ def train(s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss
     :param device:
     :return:
     """
-
+    batch_time = AverageMeter('Time', ':4.2f')
+    data_time = AverageMeter('Data', ':3.1f')
     losses_g_s2t = AverageMeter('g_s2t', ':3.2f')
     losses_g_t2s = AverageMeter('g_t2s', ':3.2f')
     losses_d_s = AverageMeter('d_s', ':3.2f')
@@ -110,15 +112,23 @@ def train(s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss
     losses_semantic_s2t = AverageMeter('sem_s2t', ':3.2f')
     losses_semantic_t2s = AverageMeter('sem_t2s', ':3.2f')
 
-    # TODO: ProgressMeter: for visualizer
+    progress = ProgressMeter(
+        5000,
+        [batch_time, data_time, losses_g_s2t, losses_g_t2s, losses_d_s, losses_d_t,
+         losses_cycle_s, losses_cycle_t,
+         losses_semantic_s2t, losses_semantic_t2s],
+        prefix="Epoch: [{}]".format(epoch))
 
+    end = time.time()
+    # TODO: ProgressMeter: for visualizer
+    i = 0
     for s, real_t in zip(s_data, t_data):
         real_s = s[0].to(device)
-        print("data size: " + str(real_s.size()))
         real_t = real_t.to(device)
-        print("target image size: " + str(real_t.size()))
         label_s = s[1].float().to(device)
-        print("label size: " + str(label_s.size()))
+
+        data_time.update(time.time() - end)
+
         # forward pass
         fake_t = g_s2t(real_s)
         rec_s = g_t2s(fake_t)
@@ -140,17 +150,17 @@ def train(s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss
         # Cycle loss || g_s2t(g_t2s(t)) - t||
         loss_cycle_t = cycle_loss_func(rec_t, real_t) * 10
         # Identity loss
-        # g_s2t should be identity if real_t is fed: ||g_s2t(real_t) - real_t|| 5 is trade off identity
+        # g_s2t should be identity if real_t is fed: ||g_s2t(real_t) - real_t||
         # identity_t = g_s2t(real_t)
-        # loss_identity_t = identity_loss_func(identity_t, real_t) * 5
+        # loss_identity_t = identity_loss_func(identity_t, real_t)
         # g_t2s should be identity if real_s is fed: ||g_t2s(real_s) - real_s||
         # identity_s = g_t2s(real_s)
         # loss_identity_s = identity_loss_func(identity_s, real_s) * 5
         # Semantic loss *1 is trade off semantic
-        pred_fake_t = predict(fake_t, sem_net_t, device, (0.5,))
+
         pred_real_s = predict(real_s, sem_net_s, device, (0.5, 0.5, 0.5))
-        print("pred_fake_t" + str(pred_fake_t.size()))
-        print("label_s.long(): " + str(label_s.long().size()))
+        pred_fake_t = predict(fake_t, sem_net_t, device, (0.5,))
+
         loss_semantic_s2t = sem_loss_func(pred_fake_t, label_s.long()) * 1
         pred_fake_s = predict(fake_s, sem_net_s, device, (0.5, 0.5, 0.5))
         pred_real_t = predict(real_t, sem_net_t, device, (0.5,))
@@ -187,7 +197,10 @@ def train(s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss
         # losses_identity_t.update(loss_identity_t.item(), real_s.size(0))
         losses_semantic_s2t.update(loss_semantic_s2t.item(), real_s.size(0))
         losses_semantic_t2s.update(loss_semantic_t2s.item(), real_s.size(0))
-
+        batch_time.update(time.time() - end)
+        end = time.time()
         # TODO: add visualizer
 
-
+        if i % 10 == 0:
+            progress.display(i)
+        i += 1

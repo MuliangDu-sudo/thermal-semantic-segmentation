@@ -141,9 +141,9 @@ class SemanticConsistency(nn.Module):
     def __init__(self, ignore_index=(), reduction='mean'):
         super(SemanticConsistency, self).__init__()
         self.ignore_index = ignore_index
-        self.loss = nn.CrossEntropyLoss(ignore_index=-1, reduction=reduction)
+        self.loss = nn.CrossEntropyLoss(ignore_index=255, reduction=reduction)
 
     def forward(self, input: Tensor, target: Tensor) -> Tensor:
         for class_idx in self.ignore_index:
-            target[target == class_idx] = -1
+            target[target == class_idx] = 255
         return self.loss(input, target)
