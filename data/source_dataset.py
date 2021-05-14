@@ -11,7 +11,7 @@ class Cityscapes(BaseDataset):
         root (str): Root directory of dataset. e.g. datasets/source_dataset
         split (str, optional): The dataset split, supports ``train``, or ``val``.
         data_folder (str, optional): Sub-directory of the image. Default: 'leftImg8bit'.
-        label_folder (str, optional): Sub-directory of the label. Default: 'gtFine'.
+        label_folder (str, optional): Sub-directory of the label. Default: 'gtFine_labelIds'.
         mean (seq[float]): mean BGR value. Normalize the image if not None. Default: None.
         transforms (callable, optional): A function/transform that  takes in  (PIL image, label) pair \
             and returns a transformed version. E.g, :class:`~common.vision.transforms.segmentation.Resize`.
@@ -23,7 +23,7 @@ class Cityscapes(BaseDataset):
                 train/
                 val/
                 test/
-            gtFine/
+            gtFine_labelIds/
                 train/
                 val/
                 test/
@@ -48,12 +48,12 @@ class Cityscapes(BaseDataset):
     ]
     EVALUATE_CLASSES = CLASSES
 
-    def __init__(self, root, split='train', data_folder='leftImg8bit', label_folder='gtFine', **kwargs):
+    def __init__(self, root, split='train', data_folder='leftImg8bit', label_folder='gtFine_labelIds', **kwargs):
         assert split in ['train', 'val']
 
-        if not os.path.exists(os.path.join(root, "image_list", "{}.txt".format(split))):
+        if not os.path.exists(os.path.join(root, "image_list", "{}_{}.txt".format(data_folder, split))):
             cityscapes_txt(root, data_folder, split)
-        data_list_file = os.path.join(root, "image_list", "{}.txt".format(split))
+        data_list_file = os.path.join(root, "image_list", "{}_{}.txt".format(data_folder, split))
         self.split = split
         super(Cityscapes, self).__init__(root, Cityscapes.CLASSES, data_list_file, data_list_file,
                                          os.path.join(data_folder, split), os.path.join(label_folder, split),

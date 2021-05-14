@@ -8,12 +8,14 @@ from itertools import chain
 from train import train
 from options import train_parse
 from torchvision import transforms as TT
+import visdom
 
 
+visualizer = visdom.Visdom(env='thermal semantic segmentation')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 source_train_transform = T.Compose([
-    T.RandomResizedCrop(size=(512, 256), ratio=(1.5, 8 / 3.), scale=(0.5, 1.)),  # it return an image of size 256x512
+    T.RandomResizedCrop(size=(256, 512), ratio=(1.5, 8 / 3.), scale=(0.5, 1.)),  # it return an image of size 256x512
     T.RandomHorizontalFlip(),
     T.ToTensor(),
     T.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
@@ -65,7 +67,7 @@ def main():
         print("--------EPOCH {}--------".format(epoch))
         train(train_source_loader, train_target_loader, net_g_s2t, net_g_t2s, net_d_s, net_d_t, net_seg_s, net_seg_t,
               gan_loss_func, cycle_loss_func, identity_loss_func, sem_loss_func, optimizer_g, optimizer_d, fake_s_pool,
-              fake_t_pool, device, epoch)
+              fake_t_pool, device, epoch, visualizer)
 
         #torch.save()
 

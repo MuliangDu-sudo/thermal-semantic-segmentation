@@ -190,7 +190,7 @@ def cityscapes_txt(root, data_folder, split):
         for dirpath, dirnames, filenames in os.walk(im_dir):
             for filename in filenames:
                 list_file.write(os.path.join(dirpath, filename)+'\n')
-    elif data_folder == 'gtFine':
+    elif data_folder == 'gtFine_labelIds':
         for dirpath, dirnames, filenames in os.walk(im_dir):
             for filename in filenames:
                 if filename.endswith('gtFine_labelIds.png'):

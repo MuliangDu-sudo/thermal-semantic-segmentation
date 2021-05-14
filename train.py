@@ -91,7 +91,7 @@ def predict_(args):
 
 
 def train(s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss_func, cycle_loss_func,
-          identity_loss_func, sem_loss_func, optim_g, optim_d, fake_s_pool, fake_t_pool, device, epoch):
+          identity_loss_func, sem_loss_func, optim_g, optim_d, fake_s_pool, fake_t_pool, device, epoch, vis):
     """
     :param args: parser
     :param s_data: source train dataloader
@@ -215,4 +215,11 @@ def train(s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss
 
         if i % 10 == 0:
             progress.display(i)
+            vis.images(real_s, win='real_s', padding=2, opts=dict(title='real_s', caption='real_s'))
+            vis.images(fake_t, win='fake_t', padding=2, opts=dict(title='fake_t', caption='fake_t'))
+            vis.images(rec_s, win='rec_s', padding=2, opts=dict(title='rec_s', caption='rec_s'))
+            vis.images(real_t, win='real_t', padding=2, opts=dict(title='real_t', caption='real_t'))
+            vis.images(fake_s, win='fake_s', padding=2, opts=dict(title='fake_s', caption='fake_s'))
+            vis.images(rec_t, win='rec_t', padding=2, opts=dict(title='rec_t', caption='rec_t'))
+            vis.images(label_s, win='label_s', padding=2, opts=dict(title='label_s', caption='label_s'))
         i += 1
