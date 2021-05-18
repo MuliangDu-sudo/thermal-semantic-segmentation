@@ -90,7 +90,7 @@ def predict_(args):
     return foo
 
 
-def train(s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss_func, cycle_loss_func,
+def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss_func, cycle_loss_func,
           identity_loss_func, sem_loss_func, optim_g, optim_d, fake_s_pool, fake_t_pool, device, epoch, vis):
     """
     :param args: parser
@@ -125,7 +125,7 @@ def train(s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss
     losses_semantic_t2s = AverageMeter('sem_t2s', ':3.2f')
 
     progress = ProgressMeter(
-        5000,
+        min(len(s_data), len(t_data)),
         [batch_time, data_time, losses_g_s2t, losses_g_t2s, losses_d_s, losses_d_t,
          losses_cycle_s, losses_cycle_t,
          losses_semantic_s2t, losses_semantic_t2s],
@@ -169,18 +169,20 @@ def train(s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss
         # identity_s = g_t2s(real_s)
         # loss_identity_s = identity_loss_func(identity_s, real_s) * 5
         # Semantic loss *1 is trade off semantic
+        if args.sem_loss:
+            pred_real_s = predict(real_s, sem_net_s, device, 'source')
+            pred_fake_t = predict(fake_t, sem_net_t, device, 'target')
 
-        pred_real_s = predict(real_s, sem_net_s, device, 'source')
-        pred_fake_t = predict(fake_t, sem_net_t, device, 'target')
-
-        loss_semantic_s2t = sem_loss_func(pred_fake_t, label_s.long()) * 1
-        pred_fake_s = predict(fake_s, sem_net_s, device, 'source')
-        pred_real_t = predict(real_t, sem_net_t, device, 'target')
-        loss_semantic_t2s = sem_loss_func(pred_fake_s, pred_real_t.max(1).indices) * 1
-        # combined loss and calculate gradients
-        # loss_g = loss_g_s2t + loss_g_t2s + loss_cycle_s + loss_cycle_t + loss_identity_s + loss_identity_t + \
-        #          loss_semantic_s2t + loss_semantic_t2s
-        loss_g = loss_g_s2t + loss_g_t2s + loss_cycle_s + loss_cycle_t + loss_semantic_s2t + loss_semantic_t2s
+            loss_semantic_s2t = sem_loss_func(pred_fake_t, label_s.long()) * 1
+            pred_fake_s = predict(fake_s, sem_net_s, device, 'source')
+            pred_real_t = predict(real_t, sem_net_t, device, 'target')
+            loss_semantic_t2s = sem_loss_func(pred_fake_s, pred_real_t.max(1).indices) * 1
+            # combined loss and calculate gradients
+            # loss_g = loss_g_s2t + loss_g_t2s + loss_cycle_s + loss_cycle_t + loss_identity_s + loss_identity_t + \
+            #          loss_semantic_s2t + loss_semantic_t2s
+            loss_g = loss_g_s2t + loss_g_t2s + loss_cycle_s + loss_cycle_t + loss_semantic_s2t + loss_semantic_t2s
+        else:
+            loss_g = loss_g_s2t + loss_g_t2s + loss_cycle_s + loss_cycle_t
         loss_g.backward()
         optim_g.step()
 
@@ -207,8 +209,9 @@ def train(s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss
         losses_cycle_t.update(loss_cycle_t.item(), real_s.size(0))
         # losses_identity_s.update(loss_identity_s.item(), real_s.size(0))
         # losses_identity_t.update(loss_identity_t.item(), real_s.size(0))
-        losses_semantic_s2t.update(loss_semantic_s2t.item(), real_s.size(0))
-        losses_semantic_t2s.update(loss_semantic_t2s.item(), real_s.size(0))
+        if args.sem_loss:
+            losses_semantic_s2t.update(loss_semantic_s2t.item(), real_s.size(0))
+            losses_semantic_t2s.update(loss_semantic_t2s.item(), real_s.size(0))
         batch_time.update(time.time() - end)
         end = time.time()
         # TODO: add visualizer
