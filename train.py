@@ -1,4 +1,4 @@
-from utils import AverageMeter, set_requires_grad, ProgressMeter
+from utils import AverageMeter, set_requires_grad, ProgressMeter, plot_loss
 from torchvision import transforms as T
 import numpy as np
 import torch
@@ -67,7 +67,7 @@ def tensor_transmit(domain):
         denormalize = (0.5,)
         mean = (116.66876762,)
     cycle_gan_tensor_to_segmentation_tensor = T.Compose([
-        Denormalize(denormalize, denormalize),
+        # Denormalize(denormalize, denormalize),
         T.Lambda(lambda image: image.mul(255).permute((1, 2, 0))),
         NormalizeAndTranspose(domain=domain, mean=mean)
     ])
@@ -82,12 +82,6 @@ def predict(image, model, device, domain):
     prediction = model(image)
 
     return torch.nn.Upsample(size=(256, 512), mode='bilinear', align_corners=True)(prediction)
-
-
-# TODO: add predict function
-def predict_(args):
-    foo = []
-    return foo
 
 
 def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss_func, cycle_loss_func,
@@ -113,26 +107,26 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, ga
     """
     batch_time = AverageMeter('Time', ':4.2f')
     data_time = AverageMeter('Data', ':3.1f')
-    losses_g_s2t = AverageMeter('g_s2t', ':3.2f')
-    losses_g_t2s = AverageMeter('g_t2s', ':3.2f')
-    losses_d_s = AverageMeter('d_s', ':3.2f')
-    losses_d_t = AverageMeter('d_t', ':3.2f')
-    losses_cycle_s = AverageMeter('cycle_s', ':3.2f')
-    losses_cycle_t = AverageMeter('cycle_t', ':3.2f')
-    losses_identity_s = AverageMeter('idt_s', ':3.2f')
-    losses_identity_t = AverageMeter('idt_t', ':3.2f')
-    losses_semantic_s2t = AverageMeter('sem_s2t', ':3.2f')
-    losses_semantic_t2s = AverageMeter('sem_t2s', ':3.2f')
-
+    losses_g_s2t = AverageMeter('g_s2t', ':3.4f')
+    losses_g_t2s = AverageMeter('g_t2s', ':3.4f')
+    losses_d_s = AverageMeter('d_s', ':3.4f')
+    losses_d_t = AverageMeter('d_t', ':3.4f')
+    losses_cycle_s = AverageMeter('cycle_s', ':3.4f')
+    losses_cycle_t = AverageMeter('cycle_t', ':3.4f')
+    losses_semantic_s2t = AverageMeter('sem_s2t', ':3.4f')
+    losses_semantic_t2s = AverageMeter('sem_t2s', ':3.4f')
+    iteration_length = min(len(s_data), len(t_data))
     progress = ProgressMeter(
-        min(len(s_data), len(t_data)),
+        iteration_length,
         [batch_time, data_time, losses_g_s2t, losses_g_t2s, losses_d_s, losses_d_t,
          losses_cycle_s, losses_cycle_t,
          losses_semantic_s2t, losses_semantic_t2s],
         prefix="Epoch: [{}]".format(epoch))
 
+    loss_dict = {'g_s2t': [], 'g_t2s': [], 'd_s': [], 'd_t': [], 'cycle_s': [], 'cycle_t': []}
+    epoch_counter_ratio = []
     end = time.time()
-    # TODO: ProgressMeter: for visualizer
+
     i = 0
     for s, real_t in zip(s_data, t_data):
         real_s = s[0].to(device)
@@ -161,14 +155,7 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, ga
         loss_cycle_s = cycle_loss_func(rec_s, real_s) * 10
         # Cycle loss || g_s2t(g_t2s(t)) - t||
         loss_cycle_t = cycle_loss_func(rec_t, real_t) * 10
-        # Identity loss
-        # g_s2t should be identity if real_t is fed: ||g_s2t(real_t) - real_t||
-        # identity_t = g_s2t(real_t)
-        # loss_identity_t = identity_loss_func(identity_t, real_t)
-        # g_t2s should be identity if real_s is fed: ||g_t2s(real_s) - real_s||
-        # identity_s = g_t2s(real_s)
-        # loss_identity_s = identity_loss_func(identity_s, real_s) * 5
-        # Semantic loss *1 is trade off semantic
+
         if args.sem_loss:
             pred_real_s = predict(real_s, sem_net_s, device, 'source')
             pred_fake_t = predict(fake_t, sem_net_t, device, 'target')
@@ -178,8 +165,6 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, ga
             pred_real_t = predict(real_t, sem_net_t, device, 'target')
             loss_semantic_t2s = sem_loss_func(pred_fake_s, pred_real_t.max(1).indices) * 1
             # combined loss and calculate gradients
-            # loss_g = loss_g_s2t + loss_g_t2s + loss_cycle_s + loss_cycle_t + loss_identity_s + loss_identity_t + \
-            #          loss_semantic_s2t + loss_semantic_t2s
             loss_g = loss_g_s2t + loss_g_t2s + loss_cycle_s + loss_cycle_t + loss_semantic_s2t + loss_semantic_t2s
         else:
             loss_g = loss_g_s2t + loss_g_t2s + loss_cycle_s + loss_cycle_t
@@ -207,14 +192,12 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, ga
         losses_d_t.update(loss_d_t.item(), real_s.size(0))
         losses_cycle_s.update(loss_cycle_s.item(), real_s.size(0))
         losses_cycle_t.update(loss_cycle_t.item(), real_s.size(0))
-        # losses_identity_s.update(loss_identity_s.item(), real_s.size(0))
-        # losses_identity_t.update(loss_identity_t.item(), real_s.size(0))
+
         if args.sem_loss:
             losses_semantic_s2t.update(loss_semantic_s2t.item(), real_s.size(0))
             losses_semantic_t2s.update(loss_semantic_t2s.item(), real_s.size(0))
         batch_time.update(time.time() - end)
         end = time.time()
-        # TODO: add visualizer
 
         if i % 10 == 0:
             progress.display(i)
@@ -224,5 +207,13 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, ga
             vis.images(real_t, win='real_t', padding=2, opts=dict(title='real_t', caption='real_t'))
             vis.images(fake_s, win='fake_s', padding=2, opts=dict(title='fake_s', caption='fake_s'))
             vis.images(rec_t, win='rec_t', padding=2, opts=dict(title='rec_t', caption='rec_t'))
-            vis.images(label_s, win='label_s', padding=2, opts=dict(title='label_s', caption='label_s'))
+            loss_dict['g_s2t'].append(loss_g_s2t.item())
+            loss_dict['g_t2s'].append(loss_g_t2s.item())
+            loss_dict['d_s'].append(loss_d_s.item())
+            loss_dict['d_t'].append(loss_d_t.item())
+            loss_dict['cycle_s'].append(loss_cycle_s.item())
+            loss_dict['cycle_t'].append(loss_cycle_t.item())
+            epoch_counter_ratio.append(epoch+i/iteration_length)
+            plot_loss(epoch_counter_ratio, loss_dict, vis)
+            # print(loss_dict)
         i += 1

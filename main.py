@@ -24,14 +24,14 @@ source_train_transform = T.Compose([
     T.RandomResizedCrop(size=(256, 512), ratio=(1.5, 8 / 3.), scale=(0.5, 1.)),  # it return an image of size 256x512
     T.RandomHorizontalFlip(),
     T.ToTensor(),
-    T.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    # T.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 ])
 
 target_train_transform = TT.Compose([
     TT.RandomResizedCrop(size=(256, 512), ratio=(1.5, 8 / 3.), scale=(0.5, 1.)),
     TT.RandomHorizontalFlip(),
     TT.ToTensor(),
-    TT.Normalize((0.5,), (0.5,))
+    # TT.Normalize((0.5,), (0.5,))
 ])
 
 
@@ -40,9 +40,9 @@ def main(args):
     # data loading
     source_dataset = Cityscapes('datasets/source_dataset', transforms=source_train_transform)
     target_dataset = TrainTDataset('datasets/target_dataset', transforms=target_train_transform)
-    train_source_loader = DataLoader(source_dataset, batch_size=1,
+    train_source_loader = DataLoader(source_dataset, batch_size=args.batch_size,
                                      shuffle=True, num_workers=2, pin_memory=True, drop_last=True)
-    train_target_loader = DataLoader(target_dataset, batch_size=1,
+    train_target_loader = DataLoader(target_dataset, batch_size=args.batch_size,
                                      shuffle=True, num_workers=2, pin_memory=True, drop_last=True)
 
     # networks

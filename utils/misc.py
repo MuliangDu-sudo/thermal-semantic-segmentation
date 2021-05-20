@@ -5,7 +5,7 @@ import os
 from torch import nn
 from torch.nn import init
 import functools
-
+import numpy as np
 
 class AverageMeter(object):
     r"""Computes and stores the average and current value.
@@ -221,3 +221,21 @@ def flir_txt(root, split, data_folder='images'):
         for filename in filenames:
             list_file.write(os.path.join(dirpath, filename)+'\n')
     list_file.close()
+
+
+def plot_loss(epoch_counter_ratio, losses, vis):
+    plot_data = {'X': epoch_counter_ratio, 'Y': [], 'legend': list(losses.keys())}
+    plot_data['Y'] = [losses[k] for k in plot_data['legend']]
+    x = np.array(plot_data['X'])
+    # or x = np.stack([np.array(plot_data['X'])] * len(plot_data['legend']), 1)
+    y = np.array(plot_data['Y']).transpose()
+
+    vis.line(
+        X=x,
+        Y=y,
+        opts={
+            'title': ' loss over time',
+            'legend': plot_data['legend'],
+            'xlabel': 'epoch',
+            'ylabel': 'loss'},
+        win='loss')
