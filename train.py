@@ -67,7 +67,7 @@ def tensor_transmit(domain):
         denormalize = (0.5,)
         mean = (116.66876762,)
     cycle_gan_tensor_to_segmentation_tensor = T.Compose([
-        # Denormalize(denormalize, denormalize),
+        Denormalize(denormalize, denormalize),
         T.Lambda(lambda image: image.mul(255).permute((1, 2, 0))),
         NormalizeAndTranspose(domain=domain, mean=mean)
     ])
@@ -85,7 +85,7 @@ def predict(image, model, device, domain):
 
 
 def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss_func, cycle_loss_func,
-          identity_loss_func, sem_loss_func, optim_g, optim_d, fake_s_pool, fake_t_pool, device, epoch, vis):
+          identity_loss_func, sem_loss_func, optim_g, optim_d, fake_s_pool, fake_t_pool, device, epoch, vis, loss_dict):
     """
     :param args: parser
     :param s_data: source train dataloader
@@ -123,7 +123,7 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, ga
          losses_semantic_s2t, losses_semantic_t2s],
         prefix="Epoch: [{}]".format(epoch))
 
-    loss_dict = {'g_s2t': [], 'g_t2s': [], 'd_s': [], 'd_t': [], 'cycle_s': [], 'cycle_t': []}
+
     epoch_counter_ratio = []
     end = time.time()
 

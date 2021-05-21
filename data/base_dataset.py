@@ -40,7 +40,7 @@ class BaseDataset(data.Dataset):
     def __init__(self, root: str, classes: Sequence[str], data_list_file: str, label_list_file: str,
                  data_folder: str, label_folder: str,
                  id_to_train_id: Optional[Dict] = None, train_id_to_color: Optional[Sequence] = None,
-                 transforms: Optional[Callable] = None):
+                 transforms: Optional[Callable] = None, train_mode=True):
         self.root = root
         self.classes = classes
         self.data_list_file = data_list_file
@@ -53,6 +53,7 @@ class BaseDataset(data.Dataset):
         self.data_list = self.parse_data_file(self.data_list_file)
         self.label_list = self.parse_label_file(self.label_list_file)
         self.transforms = transforms
+        self.train_mode = train_mode
 
     def parse_data_file(self, file_name):
         """Parse file to image list
@@ -85,19 +86,27 @@ class BaseDataset(data.Dataset):
 
     def __getitem__(self, index):
         image_name = self.data_list[index]
-        label_name = self.label_list[index]
         image = Image.open(os.path.join(image_name)).convert('RGB')  # 2048x1024
-        label = Image.open(os.path.join(label_name))
-        image, label = self.transforms(image, label)
-        # remap label
-        if isinstance(label, torch.Tensor):
-            label = label.numpy()
-        label = np.asarray(label, np.int64)
-        label_copy = self.ignore_label * np.ones(label.shape, dtype=np.int64)
-        if self.id_to_train_id:
-            for k, v in self.id_to_train_id.items():
-                label_copy[label == k] = v
-        return image, label_copy.copy()
+
+        if self.train_mode:
+            label_name = self.label_list[index]
+            label = Image.open(os.path.join(label_name))
+            image, label = self.transforms(image, label)
+            # remap label
+            if isinstance(label, torch.Tensor):
+                label = label.numpy()
+            label = np.asarray(label, np.int64)
+            label_copy = self.ignore_label * np.ones(label.shape, dtype=np.int64)
+            if self.id_to_train_id:
+                for k, v in self.id_to_train_id.items():
+                    label_copy[label == k] = v
+            return image, label_copy.copy()
+
+        if not self.train_mode:
+            image = self.transforms(image)
+            translation_name = image_name.replace("leftImg8bit", "translation")
+
+            return image, translation_name
 
     @property
     def num_classes(self) -> int:
