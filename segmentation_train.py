@@ -24,7 +24,7 @@ def seg_train(sem_net, data, loss_func, optim, device, vis, epoch, loss_dict):
     iteration_length = len(data)
     progress = ProgressMeter(iteration_length, [train_loss], prefix="Epoch: [{}]".format(epoch))
 
-    epoch_counter_ratio = []
+    #epoch_counter_ratio = []
     sem_net.train()
     i = 0
     for item in data:
@@ -43,8 +43,8 @@ def seg_train(sem_net, data, loss_func, optim, device, vis, epoch, loss_dict):
         if i % 10 == 0:
             progress.display(i)
             loss_dict['train_loss'].append(loss.item())
-            epoch_counter_ratio.append(epoch + i / iteration_length)
-            vis.line(X=np.array(epoch_counter_ratio),
+            loss_dict['epoch_counter_ratio'].append(epoch + i / iteration_length)
+            vis.line(X=np.array(loss_dict['epoch_counter_ratio']),
                      Y=np.array(loss_dict['train_loss']).transpose(),
                      opts={
                     'title': ' loss over time',
@@ -54,6 +54,7 @@ def seg_train(sem_net, data, loss_func, optim, device, vis, epoch, loss_dict):
 
 
 def seg_validate(sem_net, val_data, device):
+    print('validating...')
     sem_net.eval()
     prediction_list, label_list = [], []
     for item in val_data:
@@ -100,9 +101,9 @@ def seg_main(args):
     train_sampler = SubsetRandomSampler(train_indices)
     valid_sampler = SubsetRandomSampler(val_indices)
 
-    train_dataloader = DataLoader(source_dataset, batch_size=1, shuffle=False, num_workers=2, pin_memory=True,
+    train_dataloader = DataLoader(source_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2, pin_memory=True,
                                   drop_last=True, sampler=train_sampler)
-    val_dataloader = DataLoader(source_dataset, batch_size=1, shuffle=False, num_workers=2, pin_memory=True,
+    val_dataloader = DataLoader(source_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2, pin_memory=True,
                                 drop_last=True, sampler=valid_sampler)
 
     net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(pretrained_backbone=False).to(device)
@@ -110,32 +111,37 @@ def seg_main(args):
     restart_epoch = 0
     best_score = 0
     if args.load_model:
-        print('loading trained model. start from epoch {}.'.format(restart_epoch))
         load_checkpoint = torch.load(os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
         restart_epoch = load_checkpoint['epoch'] + 1
+        print('loading trained model. start from epoch {}.'.format(restart_epoch))
         net.load_state_dict(load_checkpoint['sem_net_state_dict'])
         best_score = load_checkpoint['best_score']
 
-    optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
+    optimizer = torch.optim.SGD(net.parameters(), lr=0.001)
 
     loss_function = torch.nn.CrossEntropyLoss(ignore_index=255, reduction='mean')
-    loss_dict = {'train_loss': []}
+    loss_dict = {'train_loss': [], 'epoch_counter_ratio': []}
     for epoch in range(restart_epoch, restart_epoch+args.epochs):
         print("--------START TRAINING [EPOCH: {}]--------".format(epoch))
         seg_train(net, train_dataloader, loss_function, optimizer, device, visualizer, epoch, loss_dict)
-        mean_iu = seg_validate(net, val_dataloader, device)
+        torch.save({
+            'epoch': epoch,
+            'sem_net_state_dict': net.state_dict(),
+            # 'best_score': best_score,
+        }, os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
+        # mean_iu = seg_validate(net, val_dataloader, device)
 
-        if mean_iu > best_score:
-            print('Model iou score improved ({} to {})! Saving...'.format(best_score, mean_iu))
-            best_score = mean_iu
-            torch.save({
-                'epoch': epoch,
-                'sem_net_state_dict': net.state_dict(),
-                'best_score': best_score
-            }, os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
-        else:
-            print('Model not improved.')
-            torch.save({'epoch': epoch}, os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
+        # if mean_iu > best_score:
+        #     print('Model iou score improved ({} to {})! Saving...'.format(best_score, mean_iu))
+        #     best_score = mean_iu
+        #     torch.save({
+        #         'epoch': epoch,
+        #         'sem_net_state_dict': net.state_dict(),
+        #         'best_score': best_score,
+        #     }, os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
+        # else:
+        #     print('Model not improved.')
+
 
 
 if __name__ == '__main__':
