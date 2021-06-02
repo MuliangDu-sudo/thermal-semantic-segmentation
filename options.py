@@ -22,7 +22,8 @@ def seg_parse():
     parser = argparse.ArgumentParser(description='segmentation options')
     parser.add_argument('-load_model', default=True, help='train with pretrained model.')
     parser.add_argument('-epochs', default=10, help='number of epochs to train.')
-    parser.add_argument('-batch_size', type=int, default=1, help='batch size for translation.')
+    parser.add_argument('-batch_size', type=int, default=8, help='batch size for translation.')
     parser.add_argument('-checkpoint_name', type=str, default='semantic_segmentation.pth',
                         help='the name of trained model.')
+    parser.add_argument('-num_samples_show', type=int, default=3, help='number of samples to show in visdom.')
     return parser
