@@ -186,7 +186,8 @@ def cityscapes_txt(root, data_folder, split):
     """
     im_dir: str = os.path.join(root, data_folder, split)
     list_file = open(r"{}/image_list/{}_{}.txt".format(root, data_folder, split), "w+")
-    if data_folder == 'leftImg8bit':
+    if data_folder == 'leftImg8bit' or data_folder == 'translation':
+        print('im here')
         for dirpath, dirnames, filenames in os.walk(im_dir):
             for filename in filenames:
                 list_file.write(os.path.join(dirpath, filename)+'\n')
@@ -229,7 +230,6 @@ def plot_loss(epoch_counter_ratio, losses, vis):
     x = np.array(plot_data['X'])
     # or x = np.stack([np.array(plot_data['X'])] * len(plot_data['legend']), 1)
     y = np.array(plot_data['Y']).transpose()
-
     vis.line(
         X=x,
         Y=y,
