@@ -85,7 +85,7 @@ def predict(image, model, device, domain):
 
 
 def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss_func, cycle_loss_func,
-          identity_loss_func, sem_loss_func, optim_g, optim_d, fake_s_pool, fake_t_pool, device, epoch, vis, loss_dict):
+          identity_loss_func, sem_loss_func, optim_g, optim_d, fake_s_pool, fake_t_pool, device, epoch, vis, loss_dict, epoch_counter_ratio):
     """
     :param args: parser
     :param s_data: source train dataloader
@@ -124,13 +124,12 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, ga
         prefix="Epoch: [{}]".format(epoch))
 
 
-    epoch_counter_ratio = []
     end = time.time()
 
     i = 0
     for s, real_t in zip(s_data, t_data):
         real_s = s[0].to(device)
-        real_t = real_t.to(device)
+        real_t = real_t.float().to(device)
         label_s = s[1].float().to(device)
 
         data_time.update(time.time() - end)
@@ -154,7 +153,7 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, ga
         # Cycle loss || g_t2s(g_s2t(s)) - s|| 10 is trade off cycle
         loss_cycle_s = cycle_loss_func(rec_s, real_s) * 10
         # Cycle loss || g_s2t(g_t2s(t)) - t||
-        loss_cycle_t = cycle_loss_func(rec_t, real_t) * 10
+        loss_cycle_t = 0.0001 * cycle_loss_func(rec_t, real_t) * 10
 
         if args.sem_loss:
             pred_real_s = predict(real_s, sem_net_s, device, 'source')
