@@ -7,6 +7,7 @@ from torch.nn import init
 import functools
 import numpy as np
 
+
 class AverageMeter(object):
     r"""Computes and stores the average and current value.
 
@@ -224,6 +225,29 @@ def flir_txt(root, split, data_folder='images'):
     list_file.close()
 
 
+def freiburg_txt(root, split, domain, time='day'):
+    """
+
+    :param root: str, root directory
+    :param domain: str, IR or RGB
+    :return: txt file of files paths
+    """
+    im_dir: str = os.path.join(root, split, time, 'Images' + domain)
+    os.makedirs(os.path.join(root, 'image_list'))
+    list_file = open(r"{}/image_list/{}_{}_data.txt".format(root, split, domain), "w+")
+    label_file = open(r"{}/image_list/{}_{}_label.txt".format(root, split, domain), "w+")
+
+    for dirpath, dirnames, filenames in os.walk(im_dir):
+        for filename in filenames:
+            data_path = os.path.join(dirpath, filename)
+            label_path = data_path.replace("Images"+domain, "SegmentationClass").replace('_'+domain.lower()+'.png',
+                                                                                         '0_rgb.npy')
+            list_file.write(data_path+'\n')
+            label_file.write(label_path+'\n')
+    list_file.close()
+    label_file.close()
+
+
 def plot_loss(epoch_counter_ratio, losses, vis):
     plot_data = {'X': epoch_counter_ratio, 'Y': [], 'legend': list(losses.keys())}
     plot_data['Y'] = [losses[k] for k in plot_data['legend']]
@@ -239,3 +263,7 @@ def plot_loss(epoch_counter_ratio, losses, vis):
             'xlabel': 'epoch',
             'ylabel': 'loss'},
         win='loss')
+
+
+if __name__=="__main__":
+    freiburg_txt('../datasets/freiburg', 'test', 'IR')
