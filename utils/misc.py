@@ -6,6 +6,7 @@ from torch import nn
 from torch.nn import init
 import functools
 import numpy as np
+import glob
 
 
 class AverageMeter(object):
@@ -230,22 +231,43 @@ def freiburg_txt(root, split, domain, time='day'):
 
     :param root: str, root directory
     :param domain: str, IR or RGB
+    :param time: str, day, night or * for both.
     :return: txt file of files paths
     """
-    im_dir: str = os.path.join(root, split, time, 'Images' + domain)
-    os.makedirs(os.path.join(root, 'image_list'))
+
+    image_list_path = os.path.join(root, 'image_list')
+    if not os.path.exists(image_list_path):
+        os.makedirs(image_list_path)
     list_file = open(r"{}/image_list/{}_{}_data.txt".format(root, split, domain), "w+")
     label_file = open(r"{}/image_list/{}_{}_label.txt".format(root, split, domain), "w+")
+    if split == 'test':
+        im_dir: str = os.path.join(root, split, time, 'Images' + domain)
+        for dirpath, dirnames, filenames in os.walk(im_dir):
+            for filename in filenames:
+                data_path = os.path.join(dirpath, filename)
+                label_path = data_path.replace("Images"+domain, "SegmentationClass").replace('_'+domain.lower()+'.png',
+                                                                                             '0_rgb.npy')
+                list_file.write(data_path+'\n')
+                label_file.write(label_path+'\n')
+    if split == 'train':
 
-    for dirpath, dirnames, filenames in os.walk(im_dir):
-        for filename in filenames:
-            data_path = os.path.join(dirpath, filename)
-            label_path = data_path.replace("Images"+domain, "SegmentationClass").replace('_'+domain.lower()+'.png',
-                                                                                         '0_rgb.npy')
-            list_file.write(data_path+'\n')
-            label_file.write(label_path+'\n')
+        if domain == 'IR':
+            files = glob.glob(root + '/train/seq_*_{}/*/fl_ir_aligned/*.png'.format(time), recursive=True)
+            print(len(files))
+            for file in files:
+                label_path = file.replace('ir_aligned', 'rgb_labels')
+                list_file.write(file+'\n')
+                label_file.write(label_path+'\n')
+        else:
+            files = glob.glob(root + '/train/seq_*_{}/*/fl_rgb/*.png', recursive=True)
+            for file in files:
+                label_path = file.replace('rgb', 'rgb_labels')
+                list_file.write(file+'\n')
+                label_file.write(label_path+'\n')
     list_file.close()
     label_file.close()
+
+
 
 
 def plot_loss(epoch_counter_ratio, losses, vis):
