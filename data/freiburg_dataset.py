@@ -54,9 +54,22 @@ class Freiburg(data.Dataset):
         image_name = self.data_list[item]
         label_name = self.label_list[item]
         if self.domain == 'IR':
-            image = Image.open(os.path.join(image_name))
+            image = np.array(Image.open(os.path.join(image_name)).resize((960, 320), Image.BICUBIC),  dtype=np.float32)
+            image = image[:, 150:850]
+            # normalize IR data (is in range 0, 2**16 --> crop to relevant range(20800, 27000))
+            minval = 21800
+            maxval = 25000
+
+            image[image < minval] = minval
+            image[image > maxval] = maxval
+
+            image = (image - minval) / (maxval - minval)
+            image = Image.fromarray(image)
         elif self.domain == 'RGB':
-            image = Image.open(os.path.join(image_name)).convert('RGB')
+            image = np.array(Image.open(os.path.join(image_name)).convert('RGB').resize((960, 320), Image.BICUBIC),
+                             dtype=np.float32)
+            image = image[:, 150:850, :]
+            image = Image.fromarray(image)
         else:
             raise ValueError('Not a valid domain.')
 
