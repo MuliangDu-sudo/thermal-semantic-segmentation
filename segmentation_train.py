@@ -5,7 +5,7 @@ import os
 from PIL import ImageFile
 from utils import AverageMeter, set_requires_grad, ProgressMeter, plot_loss
 import time
-from data import CityscapesTranslation
+from data import CityscapesTranslation, Cityscapes, Freiburg
 from torch.utils.data import DataLoader
 import visdom
 from torch.utils.data.sampler import SubsetRandomSampler
@@ -30,7 +30,8 @@ def seg_train(sem_net, data, loss_func, optim, device, vis, epoch, loss_dict):
     for item in data:
         image = item[0].to(device)
         label = item[1].to(device)
-
+        # print('label in main.')
+        # print(torch.unique(label))
         optim.zero_grad()
         prediction = sem_net(image)
         prediction = torch.nn.Upsample(size=(256, 512), mode='bilinear', align_corners=True)(prediction)
@@ -86,8 +87,20 @@ def seg_main(args):
     validation_split = .2
     shuffle_dataset = True
     random_seed = 42
-    source_dataset = CityscapesTranslation('datasets/source_dataset', data_folder='translation',
-                                           transforms=train_transform)
+    if args.dataset == 'cityscapes_translation':
+        source_dataset = CityscapesTranslation('datasets/source_dataset', data_folder='translation',
+                                               transforms=train_transform)
+    elif args.dataset == 'cityscapes':
+        source_dataset = Cityscapes('datasets/source_dataset', transforms=train_transform)
+
+    elif args.dataset == 'freiburg_ir':
+        source_dataset = Freiburg('datasets/freiburg', split='train', domain='IR', transforms=train_transform,
+                                  with_label=True)
+    elif args.dataset == 'freiburg_rgb':
+        source_dataset = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=train_transform,
+                                  with_label=True)
+    else:
+        raise ValueError('dataset does not exist.')
     # Creating data indices for training and validation splits:
     dataset_size = len(source_dataset)
     indices = list(range(dataset_size))
@@ -105,9 +118,14 @@ def seg_main(args):
                                   drop_last=True, sampler=train_sampler)
     val_dataloader = DataLoader(source_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2, pin_memory=True,
                                 drop_last=True, sampler=valid_sampler)
-
-    net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(pretrained_backbone=False).to(device)
-
+    if args.net_mode == 'one_channel':
+        net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(num_classes=args.num_classes,
+                                                                               pretrained_backbone=False).to(device)
+    elif args.net_mode == 'three_channels':
+        net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(num_classes=args.num_classes,
+                                                                               pretrained_backbone=False).to(device)
+    else:
+        raise ValueError('net mode does not exist.')
     restart_epoch = 0
     best_score = 0
     if args.load_model:
@@ -117,7 +135,7 @@ def seg_main(args):
         net.load_state_dict(load_checkpoint['sem_net_state_dict'])
         best_score = load_checkpoint['best_score']
 
-    optimizer = torch.optim.SGD(net.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
 
     loss_function = torch.nn.CrossEntropyLoss(ignore_index=255, reduction='mean')
     loss_dict = {'train_loss': [], 'epoch_counter_ratio': []}
@@ -141,7 +159,6 @@ def seg_main(args):
         #     }, os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
         # else:
         #     print('Model not improved.')
-
 
 
 if __name__ == '__main__':
