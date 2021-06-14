@@ -74,8 +74,8 @@ class Freiburg(data.Dataset):
             raise ValueError('Not a valid domain.')
 
         if self.with_label:
-            label = np.array(Image.open(os.path.join(image_name)).resize((960, 320), Image.NEAREST),  dtype=np.uint8)
-            label = Image.fromarray(label)
+            label = np.array(Image.open(os.path.join(label_name)).resize((960, 320), Image.NEAREST),  dtype=np.uint8)
+            label = Image.fromarray(label, mode='L')
             image, label = self.transforms(image, label)
             return image, np.array(label, dtype=np.int64)
         else:
