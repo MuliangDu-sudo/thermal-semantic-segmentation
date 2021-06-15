@@ -12,6 +12,10 @@ from torch.utils.data.sampler import SubsetRandomSampler
 import numpy as np
 from utils.eval_tools import evaluate
 from options import seg_parse
+from PIL import ImageFile
+
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 MODEL_ROOT_PATH = './checkpoints/semantic_segmentation'
 if not os.path.exists(MODEL_ROOT_PATH):
@@ -133,11 +137,11 @@ def seg_main(args):
         restart_epoch = load_checkpoint['epoch'] + 1
         print('loading trained model. start from epoch {}.'.format(restart_epoch))
         net.load_state_dict(load_checkpoint['sem_net_state_dict'])
-        best_score = load_checkpoint['best_score']
+        # best_score = load_checkpoint['best_score']
 
-    optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
 
-    loss_function = torch.nn.CrossEntropyLoss(ignore_index=255, reduction='mean')
+    loss_function = torch.nn.CrossEntropyLoss(ignore_index=13, reduction='mean')
     loss_dict = {'train_loss': [], 'epoch_counter_ratio': []}
     for epoch in range(restart_epoch, restart_epoch+args.epochs):
         print("--------START TRAINING [EPOCH: {}]--------".format(epoch))
