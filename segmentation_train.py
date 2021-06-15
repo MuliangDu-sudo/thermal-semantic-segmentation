@@ -12,6 +12,10 @@ from torch.utils.data.sampler import SubsetRandomSampler
 import numpy as np
 from utils.eval_tools import evaluate
 from options import seg_parse
+from PIL import ImageFile
+
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 MODEL_ROOT_PATH = './checkpoints/semantic_segmentation'
 if not os.path.exists(MODEL_ROOT_PATH):
@@ -128,37 +132,44 @@ def seg_main(args):
         raise ValueError('net mode does not exist.')
     restart_epoch = 0
     best_score = 0
+    lowest_val_loss = 1000
     if args.load_model:
         load_checkpoint = torch.load(os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
         restart_epoch = load_checkpoint['epoch'] + 1
         print('loading trained model. start from epoch {}.'.format(restart_epoch))
         net.load_state_dict(load_checkpoint['sem_net_state_dict'])
-        best_score = load_checkpoint['best_score']
+        # if 'best_score' in load_checkpoint:
+        #     best_score = load_checkpoint['best_score']
+        if 'lowest_val_loss' in load_checkpoint:
+            lowest_val_loss = load_checkpoint['lowest_val_loss']
 
-    optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(net.parameters(), lr=0.0001)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', verbose=True)
 
-    loss_function = torch.nn.CrossEntropyLoss(ignore_index=255, reduction='mean')
+    loss_function = torch.nn.CrossEntropyLoss(ignore_index=12, reduction='mean')
     loss_dict = {'train_loss': [], 'epoch_counter_ratio': []}
     for epoch in range(restart_epoch, restart_epoch+args.epochs):
         print("--------START TRAINING [EPOCH: {}]--------".format(epoch))
         seg_train(net, train_dataloader, loss_function, optimizer, device, visualizer, epoch, loss_dict)
-        torch.save({
-            'epoch': epoch,
-            'sem_net_state_dict': net.state_dict(),
-            # 'best_score': best_score,
-        }, os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
-        # mean_iu = seg_validate(net, val_dataloader, device)
+        # torch.save({
+        #     'epoch': epoch,
+        #     'sem_net_state_dict': net.state_dict(),
+        #     'best_score': best_score,
+        # }, os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
+        mean_iu, val_loss = seg_validate(net, val_dataloader, device)
+        scheduler.step(val_loss)
 
-        # if mean_iu > best_score:
-        #     print('Model iou score improved ({} to {})! Saving...'.format(best_score, mean_iu))
-        #     best_score = mean_iu
-        #     torch.save({
-        #         'epoch': epoch,
-        #         'sem_net_state_dict': net.state_dict(),
-        #         'best_score': best_score,
-        #     }, os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
-        # else:
-        #     print('Model not improved.')
+        if val_loss < lowest_val_loss:
+            print('val loss reduced from {} to {}! Saving...'.format(lowest_val_loss, val_loss))
+            print('mean iou score: '+str(mean_iu))
+            lowest_val_loss = val_loss
+            torch.save({
+                'epoch': epoch,
+                'sem_net_state_dict': net.state_dict(),
+                'val_loss': lowest_val_loss,
+            }, os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
+        else:
+            print('Model not improved.')
 
 
 if __name__ == '__main__':
