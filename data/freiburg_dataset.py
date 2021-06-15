@@ -74,7 +74,7 @@ class Freiburg(data.Dataset):
             raise ValueError('Not a valid domain.')
 
         if self.with_label:
-            label = np.array(Image.open(os.path.join(label_name)).resize((960, 320), Image.NEAREST),  dtype=np.uint8)
+            label = np.array(Image.open(os.path.join(label_name)).resize((960, 320), Image.NEAREST), dtype=np.uint8)
             label = label[:, 150:850]
             label = Image.fromarray(label, mode='L')
             image, label = self.transforms(image, label)
@@ -87,7 +87,7 @@ class Freiburg(data.Dataset):
 class FreiburgTest(Freiburg):
 
     def __init__(self, root, split, domain, transforms, with_label):
-        super(Freiburg, self).__init__(root, split, domain, transforms, with_label)
+        super(FreiburgTest, self).__init__(root, split, domain, transforms, with_label)
 
     def __getitem__(self, item):
 
@@ -115,8 +115,8 @@ class FreiburgTest(Freiburg):
 
         if self.with_label:
             label = np.load(os.path.join(label_name))
-            label = Image.fromarray(label, mode='L').resize((960, 320), Image.NEAREST)
-            label = Image.fromarray(np.array(label)[:, 150:850], Image.NEAREST)
+            label = Image.fromarray(label).resize((960, 320), Image.NEAREST)
+            label = Image.fromarray(np.array(label)[:, 150:850])
             image, label = self.transforms(image, label)
             return image, np.array(label, dtype=np.int64)
         else:
