@@ -5,7 +5,7 @@ import os
 from PIL import ImageFile
 from utils import AverageMeter, set_requires_grad, ProgressMeter, plot_loss
 import time
-from data import CityscapesTranslation
+from data import CityscapesTranslation, Cityscapes, Freiburg
 from torch.utils.data import DataLoader
 import visdom
 from torch.utils.data.sampler import SubsetRandomSampler
@@ -64,8 +64,20 @@ def seg_evaluation(args):
     validation_split = .2
     shuffle_dataset = True
     random_seed = 42
-    source_dataset = CityscapesTranslation('datasets/source_dataset', data_folder='translation',
-                                           transforms=train_transform)
+    if args.dataset == 'cityscapes_translation':
+        source_dataset = CityscapesTranslation('datasets/source_dataset', data_folder='translation',
+                                               transforms=train_transform)
+    elif args.dataset == 'cityscapes':
+        source_dataset = Cityscapes('datasets/source_dataset', transforms=train_transform)
+
+    elif args.dataset == 'freiburg_ir':
+        source_dataset = Freiburg('datasets/freiburg', split='test', domain='IR', transforms=train_transform,
+                                  with_label=True)
+    elif args.dataset == 'freiburg_rgb':
+        source_dataset = Freiburg('datasets/freiburg', split='test', domain='RGB', transforms=train_transform,
+                                  with_label=True)
+    else:
+        raise ValueError('dataset does not exist.')
     # Creating data indices for training and validation splits:
     dataset_size = len(source_dataset)
     indices = list(range(dataset_size))
