@@ -5,13 +5,17 @@ import os
 from PIL import ImageFile
 from utils import AverageMeter, set_requires_grad, ProgressMeter, plot_loss
 import time
-from data import CityscapesTranslation, Cityscapes, Freiburg
+from data import CityscapesTranslation, Cityscapes, FreiburgTest, Freiburg
 from torch.utils.data import DataLoader
 import visdom
 from torch.utils.data.sampler import SubsetRandomSampler
 import numpy as np
 from utils.eval_tools import evaluate
 from options import seg_parse
+from PIL import ImageFile
+
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 MODEL_ROOT_PATH = './checkpoints/semantic_segmentation'
@@ -22,11 +26,13 @@ def seg_validate(args, sem_net, val_data, loss_func, device, vis):
     val_loss = AverageMeter('val_loss', ':3.4f')
     sem_net.eval()
     prediction_list, label_list = [], []
+    print(len(val_data))
     random_id = np.random.choice(len(val_data), args.num_samples_show)
     i = 0
     for item in val_data:
         image = item[0].to(device)
         label = item[1].to(device)
+        # print(np.unique(label.cpu().numpy()))
         # print(image[0].shape)
         # print(label[0].unsqueeze(dim=0).shape)
         outputs = sem_net(image)
@@ -61,7 +67,7 @@ def seg_evaluation(args):
         # T.Normalize((0.5,), (0.5,))
     ])
 
-    validation_split = .2
+    validation_split = .05
     shuffle_dataset = True
     random_seed = 42
     if args.dataset == 'cityscapes_translation':
@@ -71,14 +77,15 @@ def seg_evaluation(args):
         source_dataset = Cityscapes('datasets/source_dataset', transforms=train_transform)
 
     elif args.dataset == 'freiburg_ir':
-        source_dataset = Freiburg('datasets/freiburg', split='test', domain='IR', transforms=train_transform,
+        source_dataset = Freiburg('datasets/freiburg', split='train', domain='IR', transforms=train_transform,
                                   with_label=True)
     elif args.dataset == 'freiburg_rgb':
-        source_dataset = Freiburg('datasets/freiburg', split='test', domain='RGB', transforms=train_transform,
+        source_dataset = FreiburgTest('datasets/freiburg', split='test', domain='RGB', transforms=train_transform,
                                   with_label=True)
     else:
         raise ValueError('dataset does not exist.')
     # Creating data indices for training and validation splits:
+
     dataset_size = len(source_dataset)
     indices = list(range(dataset_size))
     split = int(np.floor(validation_split * dataset_size))
@@ -91,12 +98,14 @@ def seg_evaluation(args):
     valid_sampler = SubsetRandomSampler(val_indices)
     val_dataloader = DataLoader(source_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2, pin_memory=True,
                                 drop_last=True, sampler=valid_sampler)
+    # val_dataloader = DataLoader(source_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2, pin_memory=True,
+    #                             drop_last=True)
 
-    net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(pretrained_backbone=False).to(device)
+    net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(num_classes=args.num_classes, pretrained_backbone=False).to(device)
     load_checkpoint = torch.load(os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
     net.load_state_dict(load_checkpoint['sem_net_state_dict'])
 
-    loss_function = torch.nn.CrossEntropyLoss(ignore_index=255, reduction='mean')
+    loss_function = torch.nn.CrossEntropyLoss(ignore_index=13, reduction='mean')
 
     mean_iu, avg_loss = seg_validate(args, net, val_dataloader, loss_function, device, visualizer)
     print('mean iou score: [{}]. val_loss: [{}]'.format(mean_iu, avg_loss))
