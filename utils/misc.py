@@ -250,7 +250,6 @@ def freiburg_txt(root, split, domain, time='day'):
                 list_file.write(data_path+'\n')
                 label_file.write(label_path+'\n')
     if split == 'train':
-
         if domain == 'IR':
             files = glob.glob(root + '/train/seq_*_{}/*/fl_ir_aligned/*.png'.format(time), recursive=True)
             print(len(files))
@@ -259,7 +258,8 @@ def freiburg_txt(root, split, domain, time='day'):
                 list_file.write(file+'\n')
                 label_file.write(label_path+'\n')
         else:
-            files = glob.glob(root + '/train/seq_*_{}/*/fl_rgb/*.png', recursive=True)
+            files = glob.glob(root + '/train/seq_*_{}/*/fl_rgb/*.png'.format(time), recursive=True)
+            print(len(files))
             for file in files:
                 label_path = file.replace('rgb', 'rgb_labels')
                 list_file.write(file+'\n')
