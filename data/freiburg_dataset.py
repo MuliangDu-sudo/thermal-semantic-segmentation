@@ -69,7 +69,7 @@ class Freiburg(data.Dataset):
             image = np.array(Image.open(os.path.join(image_name)).convert('RGB').resize((960, 320), Image.BICUBIC),
                              dtype=np.float32)
             image = image[:, 150:850, :]
-            image = Image.fromarray(image)
+            image = Image.fromarray(np.uint8(image))
         else:
             raise ValueError('Not a valid domain.')
 
@@ -109,7 +109,7 @@ class FreiburgTest(Freiburg):
             image = np.array(Image.open(os.path.join(image_name)).convert('RGB').resize((960, 320), Image.BICUBIC),
                              dtype=np.float32)
             image = image[:, 150:850, :]
-            image = Image.fromarray(image)
+            image = Image.fromarray(np.uint8(image))
         else:
             raise ValueError('Not a valid domain.')
 
