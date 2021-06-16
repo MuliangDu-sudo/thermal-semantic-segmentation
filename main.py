@@ -1,7 +1,7 @@
 import torch
 from utils import loss, ImagePool
 from utils import transforms as T
-from data import Cityscapes, TrainTDataset
+from data import Cityscapes, TrainTDataset, Freiburg
 from torch.utils.data import DataLoader
 from models import discriminators, generators, semantic_segmentation_models, thermal_semantic_segmentation_models
 from itertools import chain
@@ -38,8 +38,22 @@ target_train_transform = TT.Compose([
 def main(args):
 
     # data loading
-    source_dataset = Cityscapes('datasets/source_dataset', transforms=source_train_transform)
-    target_dataset = TrainTDataset('datasets/target_dataset', transforms=target_train_transform)
+    if args.source_dataset == 'Cityscapes':
+        source_dataset = Cityscapes('datasets/source_dataset', transforms=source_train_transform)
+    elif args.source_dataset == 'freiburg_rgb':
+        source_dataset = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=source_train_transform,
+                                  with_label=True)
+    else:
+        raise ValueError('source dataset does not exist.')
+
+    if args.target_dataset == 'flir':
+        target_dataset = TrainTDataset('datasets/target_dataset', transforms=target_train_transform)
+    elif args.target_dataset == 'freiburg_ir':
+        target_dataset = Freiburg('datasets/freiburg', split='train', domain='IR', transforms=target_train_transform,
+                                  with_label=False)
+    else:
+        raise ValueError('target dataset does not exist.')
+
     train_source_loader = DataLoader(source_dataset, batch_size=args.batch_size,
                                      shuffle=True, num_workers=2, pin_memory=True, drop_last=True)
     train_target_loader = DataLoader(target_dataset, batch_size=args.batch_size,
@@ -70,9 +84,9 @@ def main(args):
 
     # define optimizers
     all_params_g = chain(net_g_s2t.parameters(), net_g_t2s.parameters())
-    optimizer_g = torch.optim.Adam(all_params_g, lr=0.001)
+    optimizer_g = torch.optim.Adam(all_params_g, lr=args.lr)
     all_params_d = chain(net_d_s.parameters(), net_d_t.parameters())
-    optimizer_d = torch.optim.Adam(all_params_d, lr=0.001)
+    optimizer_d = torch.optim.Adam(all_params_d, lr=args.lr)
 
     # define loss
     gan_loss_func = loss.LeastSquaresGenerativeAdversarialLoss()
@@ -80,12 +94,13 @@ def main(args):
     identity_loss_func = torch.nn.L1Loss()
     sem_loss_func = loss.SemanticConsistency().to(device)
     loss_dict = {'g_s2t': [], 'g_t2s': [], 'd_s': [], 'd_t': [], 'cycle_s': [], 'cycle_t': []}
+    epoch_counter_ratio = []
     print("--------START TRAINING--------")
     for epoch in range(restart_epoch, restart_epoch+10):
         print("--------EPOCH {}--------".format(epoch))
         train(args, train_source_loader, train_target_loader, net_g_s2t, net_g_t2s, net_d_s, net_d_t, net_seg_s, net_seg_t,
               gan_loss_func, cycle_loss_func, identity_loss_func, sem_loss_func, optimizer_g, optimizer_d, fake_s_pool,
-              fake_t_pool, device, epoch, visualizer, loss_dict)
+              fake_t_pool, device, epoch, visualizer, loss_dict, epoch_counter_ratio)
 
         torch.save({
             'epoch': epoch,
