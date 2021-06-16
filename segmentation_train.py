@@ -13,6 +13,7 @@ import numpy as np
 from utils.eval_tools import evaluate
 from options import seg_parse
 from PIL import ImageFile
+from segmentation_evaluate import seg_validate
 
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -58,23 +59,23 @@ def seg_train(sem_net, data, loss_func, optim, device, vis, epoch, loss_dict):
         i += 1
 
 
-def seg_validate(sem_net, val_data, device):
-    print('validating...')
-    sem_net.eval()
-    prediction_list, label_list = [], []
-    for item in val_data:
-        image = item[0].to(device)
-        label = item[1].to(device)
-        outputs = sem_net(image)
-        outputs = torch.nn.Upsample(size=(256, 512), mode='bilinear', align_corners=True)(outputs)
-
-        predictions = outputs.max(1)[1].squeeze_(1).cpu().numpy()
-        label_list.append(label.cpu().numpy())
-        prediction_list.append(predictions)
-    label_list = np.concatenate(label_list)
-    prediction_list = np.concatenate(prediction_list)
-    acc, acc_cls, mean_iu, fwavacc = evaluate(prediction_list, label_list, 19)
-    return mean_iu
+# def seg_validate(sem_net, val_data, device):
+#     print('validating...')
+#     sem_net.eval()
+#     prediction_list, label_list = [], []
+#     for item in val_data:
+#         image = item[0].to(device)
+#         label = item[1].to(device)
+#         outputs = sem_net(image)
+#         outputs = torch.nn.Upsample(size=(256, 512), mode='bilinear', align_corners=True)(outputs)
+#
+#         predictions = outputs.max(1)[1].squeeze_(1).cpu().numpy()
+#         label_list.append(label.cpu().numpy())
+#         prediction_list.append(predictions)
+#     label_list = np.concatenate(label_list)
+#     prediction_list = np.concatenate(prediction_list)
+#     acc, acc_cls, mean_iu, fwavacc = evaluate(prediction_list, label_list, 19)
+#     return mean_iu
 
 
 def seg_main(args):
@@ -120,7 +121,7 @@ def seg_main(args):
 
     train_dataloader = DataLoader(source_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2, pin_memory=True,
                                   drop_last=True, sampler=train_sampler)
-    val_dataloader = DataLoader(source_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2, pin_memory=True,
+    val_dataloader = DataLoader(source_dataset, batch_size=args.val_batch_size, shuffle=False, num_workers=2, pin_memory=True,
                                 drop_last=True, sampler=valid_sampler)
     if args.net_mode == 'one_channel':
         net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(num_classes=args.num_classes,
@@ -156,7 +157,7 @@ def seg_main(args):
         #     'sem_net_state_dict': net.state_dict(),
         #     'best_score': best_score,
         # }, os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
-        mean_iu, val_loss = seg_validate(net, val_dataloader, device)
+        mean_iu, val_loss = seg_validate(args, net, val_dataloader, loss_function, device, visualizer)
         scheduler.step(val_loss)
 
         if val_loss < lowest_val_loss:
