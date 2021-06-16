@@ -14,9 +14,7 @@ from utils.eval_tools import evaluate
 from options import seg_parse
 from PIL import ImageFile
 
-
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-
 
 MODEL_ROOT_PATH = './checkpoints/semantic_segmentation'
 
@@ -44,14 +42,17 @@ def seg_validate(args, sem_net, val_data, loss_func, device, vis):
         prediction_list.append(predictions)
         val_loss.update(loss.item(), image.size(0))
         if i in random_id:
-            vis.images(image[0], win='image [{}]'.format(i), padding=2, opts=dict(title='image [{}]'.format(i), caption='image [{}]'.format(i)))
-            vis.images(np.uint8(label[0].cpu().numpy()), win='label [{}]'.format(i), padding=2, opts=dict(title='label [{}]'.format(i), caption='label [{}]'.format(i)))
-            vis.images(np.uint8(predictions[0]), win='prediction [{}]'.format(i), padding=2, opts=dict(title='prediction [{}]'.format(i), caption='prediction [{}]'.format(i)))
+            vis.images(image[0], win='image [{}]'.format(i), padding=2,
+                       opts=dict(title='image [{}]'.format(i), caption='image [{}]'.format(i)))
+            vis.images(np.uint8(label[0].cpu().numpy()), win='label [{}]'.format(i), padding=2,
+                       opts=dict(title='label [{}]'.format(i), caption='label [{}]'.format(i)))
+            vis.images(np.uint8(predictions[0]), win='prediction [{}]'.format(i), padding=2,
+                       opts=dict(title='prediction [{}]'.format(i), caption='prediction [{}]'.format(i)))
         i += 1
 
     label_list = np.concatenate(label_list)
     prediction_list = np.concatenate(prediction_list)
-    acc, acc_cls, mean_iu, fwavacc = evaluate(prediction_list, label_list, 19)
+    acc, acc_cls, mean_iu, fwavacc = evaluate(prediction_list, label_list, args.num_classes)
     return mean_iu, val_loss.avg
 
 
@@ -77,31 +78,35 @@ def seg_evaluation(args):
         source_dataset = Cityscapes('datasets/source_dataset', transforms=train_transform)
 
     elif args.dataset == 'freiburg_ir':
-        source_dataset = Freiburg('datasets/freiburg', split='train', domain='IR', transforms=train_transform,
-                                  with_label=True)
+        source_dataset = FreiburgTest('datasets/freiburg', split='test', domain='IR', transforms=train_transform,
+                                      with_label=True)
     elif args.dataset == 'freiburg_rgb':
         source_dataset = FreiburgTest('datasets/freiburg', split='test', domain='RGB', transforms=train_transform,
-                                  with_label=True)
+                                      with_label=True)
     else:
         raise ValueError('dataset does not exist.')
     # Creating data indices for training and validation splits:
+    if args.data_split:
+        dataset_size = len(source_dataset)
+        indices = list(range(dataset_size))
+        split = int(np.floor(validation_split * dataset_size))
+        if shuffle_dataset:
+            np.random.seed(random_seed)
+            np.random.shuffle(indices)
+        train_indices, val_indices = indices[split:], indices[:split]
 
-    dataset_size = len(source_dataset)
-    indices = list(range(dataset_size))
-    split = int(np.floor(validation_split * dataset_size))
-    if shuffle_dataset:
-        np.random.seed(random_seed)
-        np.random.shuffle(indices)
-    train_indices, val_indices = indices[split:], indices[:split]
+        # Creating PT data samplers and loaders:
+        valid_sampler = SubsetRandomSampler(val_indices)
+        val_dataloader = DataLoader(source_dataset, batch_size=args.val_batch_size, shuffle=False, num_workers=2,
+                                    pin_memory=True,
+                                    drop_last=True, sampler=valid_sampler)
+    else:
+        val_dataloader = DataLoader(source_dataset, batch_size=args.val_batch_size, shuffle=False, num_workers=2,
+                                    pin_memory=True,
+                                    drop_last=True)
 
-    # Creating PT data samplers and loaders:
-    valid_sampler = SubsetRandomSampler(val_indices)
-    val_dataloader = DataLoader(source_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2, pin_memory=True,
-                                drop_last=True, sampler=valid_sampler)
-    # val_dataloader = DataLoader(source_dataset, batch_size=args.batch_size, shuffle=False, num_workers=2, pin_memory=True,
-    #                             drop_last=True)
-
-    net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(num_classes=args.num_classes, pretrained_backbone=False).to(device)
+    net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(num_classes=args.num_classes,
+                                                                           pretrained_backbone=False).to(device)
     load_checkpoint = torch.load(os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
     net.load_state_dict(load_checkpoint['sem_net_state_dict'])
 
@@ -114,5 +119,3 @@ def seg_evaluation(args):
 if __name__ == '__main__':
     args_ = seg_parse().parse_args()
     seg_evaluation(args_)
-
-
