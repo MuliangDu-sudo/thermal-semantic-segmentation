@@ -20,9 +20,10 @@ def translation_parse():
 
 def seg_parse():
     parser = argparse.ArgumentParser(description='segmentation options')
-    parser.add_argument('-load_model', default=False, help='train with pretrained model.')
+    parser.add_argument('-load_model', default=True, help='train with pretrained model.')
     parser.add_argument('-epochs', default=30, help='number of epochs to train.')
-    parser.add_argument('-batch_size', type=int, default=16, help='batch size for translation.')
+    parser.add_argument('-batch_size', type=int, default=16, help='batch size.')
+    parser.add_argument('-val_batch_size', type=int, default=8, help='validation batch size.')
     parser.add_argument('-checkpoint_name', type=str, default='freiburg_ir_semantic_segmentation_cropped_label.pth',
                         help='the name of trained model.')
     parser.add_argument('-num_samples_show', type=int, default=3, help='number of samples to show in visdom.')
@@ -30,4 +31,5 @@ def seg_parse():
     parser.add_argument('-dataset', type=str, default='freiburg_ir', help='select the dataset.')
     parser.add_argument('-num_classes', type=int, default=13, help='number of classes.')
     parser.add_argument('-lr', type=float, default=0.001, help='learning rate')
+    parser.add_argument('-data_split', type=bool, default=False, help='whether to split dataset.')
     return parser
