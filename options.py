@@ -3,13 +3,14 @@ import argparse
 
 def train_parse():
     parser = argparse.ArgumentParser(description='train options')
-    parser.add_argument('-batch_size', type=int, default=1, help='batch size for training.')
+    parser.add_argument('-batch_size', type=int, default=32, help='batch size for training.')
     parser.add_argument('-sem_loss', default=False, help='use semantic consistency loss.')
     parser.add_argument('-load_model', default=False, help='train with pretrained model.')
-    parser.add_argument('-checkpoint_name', type=str, default='freiburg_rgb2ir.pth', help='the name of trained model.')
+    parser.add_argument('-checkpoint_name', type=str, default='freiburg_gray2ir.pth', help='the name of trained model.')
     parser.add_argument('-source_dataset', type=str, default='freiburg_rgb', help='which dataset as source.')
     parser.add_argument('-target_dataset', type=str, default='freiburg_ir', help='which dataset as target.')
     parser.add_argument('-lr', type=float, default=0.0001, help='learning rate.')
+    parser.add_argument('-num_epoch', type=int, default=50, help='number of training epoch.')
     return parser
 
 
