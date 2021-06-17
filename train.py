@@ -5,8 +5,6 @@ import torch
 from PIL import Image
 import time
 
-# add something
-
 
 class Denormalize(T.Normalize):
     """DeNormalize a tensor image with mean and standard deviation.
@@ -155,7 +153,7 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, ga
         # Cycle loss || g_t2s(g_s2t(s)) - s|| 10 is trade off cycle
         loss_cycle_s = cycle_loss_func(rec_s, real_s) * 10
         # Cycle loss || g_s2t(g_t2s(t)) - t||
-        loss_cycle_t = 0.0001 * cycle_loss_func(rec_t, real_t) * 10
+        loss_cycle_t = cycle_loss_func(rec_t, real_t) * 10
 
         if args.sem_loss:
             pred_real_s = predict(real_s, sem_net_s, device, 'source')
