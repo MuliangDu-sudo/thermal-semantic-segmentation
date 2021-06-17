@@ -96,7 +96,7 @@ def main(args):
     loss_dict = {'g_s2t': [], 'g_t2s': [], 'd_s': [], 'd_t': [], 'cycle_s': [], 'cycle_t': []}
     epoch_counter_ratio = []
     print("--------START TRAINING--------")
-    for epoch in range(restart_epoch, restart_epoch+10):
+    for epoch in range(restart_epoch, restart_epoch+args.num_epoch):
         print("--------EPOCH {}--------".format(epoch))
         train(args, train_source_loader, train_target_loader, net_g_s2t, net_g_t2s, net_d_s, net_d_t, net_seg_s, net_seg_t,
               gan_loss_func, cycle_loss_func, identity_loss_func, sem_loss_func, optimizer_g, optimizer_d, fake_s_pool,
