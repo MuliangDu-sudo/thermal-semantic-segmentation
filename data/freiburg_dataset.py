@@ -1,7 +1,7 @@
 import os
 from .base_dataset import BaseDataset
 from utils import freiburg_txt
-from PIL import Image
+from PIL import Image, ImageOps
 import torch
 import numpy as np
 from torch.utils import data
@@ -24,7 +24,7 @@ def parse_file(file_name):
 
 class Freiburg(data.Dataset):
 
-    def __init__(self, root, split, domain, transforms, with_label):
+    def __init__(self, root, split, domain, transforms, with_label, grayscale=False):
         """
         :param root: str. root path to the dataset.
         :param split: str. train or test.
@@ -45,6 +45,7 @@ class Freiburg(data.Dataset):
         self.domain = domain
         self.transforms = transforms
         self.with_label = with_label
+        self.grayscale = grayscale
 
     def __len__(self):
         return len(self.data_list)
@@ -66,9 +67,14 @@ class Freiburg(data.Dataset):
             image = (image - minval) / (maxval - minval)
             image = Image.fromarray(image)
         elif self.domain == 'RGB':
-            image = np.array(Image.open(os.path.join(image_name)).convert('RGB').resize((960, 320), Image.BICUBIC),
+            if self.grayscale:
+                image = np.array(ImageOps.grayscale(Image.open(os.path.join(image_name)).convert('RGB')).resize((960, 320), Image.BICUBIC),
+                                 dtype=np.float32)
+                image = image[:, 150:850]
+            else:
+                image = np.array(Image.open(os.path.join(image_name)).convert('RGB').resize((960, 320), Image.BICUBIC),
                              dtype=np.float32)
-            image = image[:, 150:850, :]
+                image = image[:, 150:850, :]
             image = Image.fromarray(np.uint8(image))
         else:
             raise ValueError('Not a valid domain.')
