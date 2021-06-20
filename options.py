@@ -11,6 +11,12 @@ def train_parse():
     parser.add_argument('-target_dataset', type=str, default='freiburg_ir', help='which dataset as target.')
     parser.add_argument('-lr', type=float, default=0.0001, help='learning rate.')
     parser.add_argument('-num_epoch', type=int, default=50, help='number of training epoch.')
+    parser.add_argument('-grayscale', type=bool, default=True, help='convert image to grayscale.')
+    parser.add_argument('-s2t_input_nc', type=int, default=1, help='number of s2t generator input channel.')
+    parser.add_argument('-t2s_input_nc', type=int, default=1, help='number of t2s generator input channel.')
+    parser.add_argument('-normalize', type=tuple, default=(0.5, ), help='normalization in source data transform. '
+                                                                        'single value for one channel, triple for three.')
+
     return parser
 
 
