@@ -20,29 +20,28 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MODEL_ROOT_PATH = './checkpoints'
 
 
-source_train_transform = T.Compose([
-    T.RandomResizedCrop(size=(256, 512), ratio=(1.5, 8 / 3.), scale=(0.5, 1.)),  # it return an image of size 256x512
-    T.RandomHorizontalFlip(),
-    T.ToTensor(),
-    T.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-])
-
-target_train_transform = TT.Compose([
-    TT.RandomResizedCrop(size=(256, 512), ratio=(1.5, 8 / 3.), scale=(0.5, 1.)),
-    TT.RandomHorizontalFlip(),
-    TT.ToTensor(),
-    TT.Normalize((0.5,), (0.5,))
-])
-
 
 def main(args):
+    source_train_transform = T.Compose([
+        T.RandomResizedCrop(size=(256, 512), ratio=(1.5, 8 / 3.), scale=(0.5, 1.)),
+        # it return an image of size 256x512
+        T.RandomHorizontalFlip(),
+        T.ToTensor(),
+        T.Normalize(args.normalize, args.normalize)
+    ])
 
+    target_train_transform = TT.Compose([
+        TT.RandomResizedCrop(size=(256, 512), ratio=(1.5, 8 / 3.), scale=(0.5, 1.)),
+        TT.RandomHorizontalFlip(),
+        TT.ToTensor(),
+        TT.Normalize((0.5,), (0.5,))
+    ])
     # data loading
     if args.source_dataset == 'Cityscapes':
         source_dataset = Cityscapes('datasets/source_dataset', transforms=source_train_transform)
     elif args.source_dataset == 'freiburg_rgb':
         source_dataset = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=source_train_transform,
-                                  with_label=True)
+                                  with_label=True, grayscale=args.grayscale)
     else:
         raise ValueError('source dataset does not exist.')
 
@@ -60,10 +59,10 @@ def main(args):
                                      shuffle=True, num_workers=2, pin_memory=True, drop_last=True)
 
     # networks
-    net_g_s2t = generators.unet_256(ngf=64, input_nc=3, output_nc=1).to(device)
-    net_g_t2s = generators.unet_256(ngf=64, input_nc=1, output_nc=3).to(device)
-    net_d_s = discriminators.NLayerDiscriminator(input_nc=3).to(device)
-    net_d_t = discriminators.NLayerDiscriminator(input_nc=1).to(device)
+    net_g_s2t = generators.unet_256(ngf=64, input_nc=args.s2t_input_nc, output_nc=args.t2s_input_nc).to(device)
+    net_g_t2s = generators.unet_256(ngf=64, input_nc=args.t2s_input_nc, output_nc=args.s2t_input_nc).to(device)
+    net_d_s = discriminators.NLayerDiscriminator(input_nc=args.s2t_input_nc).to(device)
+    net_d_t = discriminators.NLayerDiscriminator(input_nc=args.t2s_input_nc).to(device)
     net_seg_s = semantic_segmentation_models.deeplabv2_resnet101().to(device)
     net_seg_t = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(pretrained_backbone=False).to(device)
 
