@@ -1,0 +1,345 @@
+import random
+from torch import nn, Tensor
+import torch
+import math
+from PIL import Image
+import torchvision.transforms.functional as F
+import torchvision.transforms.transforms as T
+from typing import ClassVar, Sequence, List, Tuple
+import numpy as np
+
+
+class MultipleApply:
+    """Apply a list of transformations to an image and get multiple transformed images.
+
+    Args:
+        transforms (list or tuple): list of transformations
+
+    Example:
+
+        >>> transform1 = T.Compose([
+        ...     ResizeImage(256),
+        ...     T.RandomCrop(224)
+        ... ])
+        >>> transform2 = T.Compose([
+        ...     ResizeImage(256),
+        ...     T.RandomCrop(224),
+        ... ])
+        >>> multiply_transform = MultipleApply([transform1, transform2])
+    """
+
+    def __init__(self, transforms):
+        self.transforms = transforms
+
+    def __call__(self, image):
+        return [t(image) for t in self.transforms]
+
+
+class NormalizeAndTranspose:
+    """
+    First, normalize a tensor image with mean and standard deviation.
+    Then, convert the shape (H x W x C) to shape (C x H x W).
+    """
+    def __init__(self, mean=(104.00698793, 116.66876762, 122.67891434)):
+        self.mean = np.array(mean, dtype=np.float32)
+
+    def __call__(self, image):
+        if isinstance(image, Image.Image):
+            image = np.asarray(image, np.float32)
+            # change to BGR
+            image = image[:, :, ::-1]
+            # normalize
+            image -= self.mean
+            image = image.transpose((2, 0, 1)).copy()
+        elif isinstance(image, torch.Tensor):
+            # change to BGR
+            image = image[:, :, [2, 1, 0]]
+            # normalize
+            image -= torch.from_numpy(self.mean).to(image.device)
+            image = image.permute((2, 0, 1))
+        else:
+            raise NotImplementedError(type(image))
+        return image
+
+
+class GeneralNormalize(T.Normalize):
+
+    def __init__(self, mean, std, inplace=False):
+        super().__init__(mean, std)
+        self.mean = mean
+        self.std = std
+        self.inplace = inplace
+
+    def forward(self, tensor: Tensor) -> Tensor:
+        """
+        Args:
+            tensor (Tensor): Tensor image to be normalized.
+
+        Returns:
+            Tensor: Normalized Tensor image.
+        """
+        if tensor.size()[0] == 1 and type(self.mean) == tuple:
+
+            self.mean = self.mean[0]
+            self.std = self.std[0]
+
+        return F.normalize(tensor, self.mean, self.std, self.inplace)
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+
+
+def wrapper(transform: ClassVar):
+    """ Wrap a transform for classification to a transform for segmentation.
+    Note that the segmentation label will keep the same before and after wrapper.
+
+    Args:
+        transform (class, callable): transform for classification
+
+    Returns:
+        transform for segmentation
+    """
+    class WrapperTransform(transform):
+        def __call__(self, image, label, contour):
+            image = super().__call__(image)
+            contour = super().__call__(contour)
+            return image, label, contour
+    return WrapperTransform
+
+
+ColorJitter = wrapper(T.ColorJitter)
+Normalize = wrapper(GeneralNormalize)
+ToTensor = wrapper(T.ToTensor)
+ToPILImage = wrapper(T.ToPILImage)
+MultipleApply = wrapper(MultipleApply)
+NormalizeAndTranspose = wrapper(NormalizeAndTranspose)
+
+
+class Compose:
+    """Composes several transforms together.
+
+    Args:
+        transforms (list): list of transforms to compose.
+
+    Example:
+        >>> Compose([
+        >>>     Resize((512, 512)),
+        >>>     RandomHorizontalFlip()
+        >>> ])
+    """
+    def __init__(self, transforms):
+        super(Compose, self).__init__()
+        self.transforms = transforms
+
+    def __call__(self, image, target, contour):
+        for t in self.transforms:
+            image, target, contour = t(image, target, contour)
+        return image, target, contour
+
+
+class Resize(nn.Module):
+    """Resize the input image and the corresponding label to the given size.
+    The image should be a PIL Image.
+
+    Args:
+        image_size (sequence): The requested image size in pixels, as a 2-tuple:
+          (width, height).
+        label_size (sequence, optional): The requested segmentation label size in pixels, as a 2-tuple:
+          (width, height). The same as image_size if None. Default: None.
+    """
+
+    def __init__(self, image_size, label_size=None):
+        super(Resize, self).__init__()
+        self.image_size = image_size
+        self.contour_size = image_size
+        if label_size is None:
+            self.label_size = image_size
+        else:
+            self.label_size = label_size
+
+    def forward(self, image, label, contour):
+        """
+        Args:
+            image: (PIL Image): Image to be scaled.
+            label: (PIL Image): Segmentation label to be scaled.
+
+        Returns:
+            Rescaled image, rescaled segmentation label
+        """
+        # resize
+        image = image.resize(self.image_size, Image.BICUBIC)
+        label = label.resize(self.label_size, Image.NEAREST)
+        contour = contour.resize(self.image_size, Image.BICUBIC)
+        return image, label, contour
+
+
+class RandomCrop(nn.Module):
+    """Crop the given image at a random location.
+    The image can be a PIL Image
+
+    Args:
+        size (sequence): Desired output size of the crop.
+    """
+    def __init__(self, size):
+        super(RandomCrop, self).__init__()
+        self.size = size
+
+    def forward(self, image, label, contour):
+        """
+        Args:
+            image: (PIL Image): Image to be cropped.
+            label: (PIL Image): Segmentation label to be cropped.
+
+        Returns:
+            Cropped image, cropped segmentation label.
+        """
+        # random crop
+        left = image.size[0] - self.size[0]
+        upper = image.size[1] - self.size[1]
+
+        left = random.randint(0, left-1)
+        upper = random.randint(0, upper-1)
+        right = left + self.size[0]
+        lower = upper + self.size[1]
+
+        image = image.crop((left, upper, right, lower))
+        label = label.crop((left, upper, right, lower))
+        contour = contour.crop((left, upper, right, lower))
+        return image, label, contour
+
+
+class RandomHorizontalFlip(nn.Module):
+    """Horizontally flip the given PIL Image randomly with a given probability.
+
+    Args:
+        p (float): probability of the image being flipped. Default value is 0.5
+    """
+
+    def __init__(self, p=0.5):
+        super(RandomHorizontalFlip, self).__init__()
+        self.p = p
+
+    def forward(self, image, label, contour):
+        """
+        Args:
+            image: (PIL Image): Image to be flipped.
+            label: (PIL Image): Segmentation label to be flipped.
+
+        Returns:
+            Randomly flipped image, randomly flipped segmentation label.
+        """
+        if random.random() < self.p:
+            return F.hflip(image), F.hflip(label), F.hflip(contour)
+        return image, label, contour
+
+
+class RandomResizedCrop(T.RandomResizedCrop):
+    """Crop the given image to random size and aspect ratio.
+    The image can be a PIL Image.
+
+    A crop of random size (default: of 0.5 to 1.0) of the original size and a random
+    aspect ratio (default: of 3/4 to 4/3) of the original aspect ratio is made. This crop
+    is finally resized to given size.
+
+    Args:
+        size (int or sequence): expected output size of each edge. If size is an
+          int instead of sequence like (h, w), a square output size ``(size, size)`` is
+          made. If provided a tuple or list of length 1, it will be interpreted as (size[0], size[0]).
+        scale (tuple of float): range of size of the origin size cropped
+        ratio (tuple of float): range of aspect ratio of the origin aspect ratio cropped.
+        interpolation: Default: PIL.Image.BILINEAR
+    """
+
+    def __init__(self, size, scale=(0.5, 1.0), ratio=(3. / 4., 4. / 3.), interpolation=Image.BICUBIC):
+        super(RandomResizedCrop, self).__init__(size, scale, ratio, interpolation)
+
+    @staticmethod
+    def get_params(
+            img: Tensor, scale: List[float], ratio: List[float]
+    ) -> Tuple[int, int, int, int]:
+        """Get parameters for ``crop`` for a random sized crop.
+
+        Args:
+            img (PIL Image): Input image.
+            scale (list): range of scale of the origin size cropped
+            ratio (list): range of aspect ratio of the origin aspect ratio cropped
+
+        Returns:
+            params (i, j, h, w) to be passed to ``crop`` for a random sized crop.
+        """
+        width, height = F._get_image_size(img)
+        area = height * width
+
+        for _ in range(10):
+            target_area = area * random.uniform(scale[0], scale[1])
+            log_ratio = torch.log(torch.tensor(ratio))
+            aspect_ratio = math.exp(random.uniform(log_ratio[0], log_ratio[1]))
+
+            w = int(round(math.sqrt(target_area * aspect_ratio)))
+            h = int(round(math.sqrt(target_area / aspect_ratio)))
+
+            if 0 < w <= width and 0 < h <= height:
+                i = random.randint(0, height - h)
+                j = random.randint(0, width - w)
+                return i, j, h, w
+
+        # Fallback to central crop
+        in_ratio = float(width) / float(height)
+        if in_ratio < min(ratio):
+            w = width
+            h = int(round(w / min(ratio)))
+        elif in_ratio > max(ratio):
+            h = height
+            w = int(round(h * max(ratio)))
+        else:  # whole image
+            w = width
+            h = height
+        i = (height - h) // 2
+        j = (width - w) // 2
+        return i, j, h, w
+
+    def forward(self, image, label, contour):
+        """
+        Args:
+            image: (PIL Image): Image to be cropped and resized.
+            label: (PIL Image): Segmentation label to be cropped and resized.
+
+        Returns:
+            Randomly cropped and resized image, randomly cropped and resized segmentation label.
+        """
+        top, left, height, width = self.get_params(image, self.scale, self.ratio)
+        image = image.crop((left, top, left + width, top + height))
+        image = image.resize(self.size[::-1], Image.BICUBIC)
+        label = label.crop((left, top, left + width, top + height))
+        label = label.resize(self.size[::-1], Image.NEAREST)
+        contour = contour.crop((left, top, left + width, top + height))
+        contour = contour.resize(self.size[::-1], Image.BICUBIC)
+        return image, label, contour
+
+
+class RandomChoice(T.RandomTransforms):
+    """Apply single transformation randomly picked from a list.
+    """
+    def __call__(self, image, label, contour):
+        t = random.choice(self.transforms)
+        return t(image, label, contour)
+
+
+class RandomApply(T.RandomTransforms):
+    """Apply randomly a list of transformations with a given probability.
+
+    Args:
+        transforms (list or tuple or torch.nn.Module): list of transformations
+        p (float): probability
+    """
+
+    def __init__(self, transforms, p=0.5):
+        super(RandomApply, self).__init__(transforms)
+        self.p = p
+
+    def __call__(self, image, label):
+        if self.p < random.random():
+            return image
+        for t in self.transforms:
+            image, label = t(image, label)
+        return image
