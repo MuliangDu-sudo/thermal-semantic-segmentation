@@ -84,8 +84,9 @@ def predict(image, model, device, domain):
     return torch.nn.Upsample(size=(256, 512), mode='bilinear', align_corners=True)(prediction)
 
 
-def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, gan_loss_func, cycle_loss_func,
-          identity_loss_func, sem_loss_func, optim_g, optim_d, fake_s_pool, fake_t_pool, device, epoch, vis, loss_dict, epoch_counter_ratio):
+def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, canny, sem_net_s, sem_net_t, gan_loss_func, cycle_loss_func,
+          identity_loss_func, sem_loss_func, contour_loss_func, optim_g, optim_d, fake_s_pool, fake_t_pool, device,
+          epoch, vis, loss_dict, epoch_counter_ratio):
     """
     :param args: parser
     :param s_data: source train dataloader
@@ -127,9 +128,9 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, ga
     end = time.time()
 
     i = 0
-    for s, real_t in zip(s_data, t_data):
+    for s, t in zip(s_data, t_data):
         real_s = s[0].to(device)
-        real_t = real_t.float().to(device)
+        real_t = t[0].float().to(device)
         label_s = s[1].float().to(device)
 
         data_time.update(time.time() - end)
@@ -155,6 +156,21 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, ga
         # Cycle loss || g_s2t(g_t2s(t)) - t||
         loss_cycle_t = cycle_loss_func(rec_t, real_t) * 10
 
+        loss_g = loss_g_s2t + loss_g_t2s + loss_cycle_s + loss_cycle_t
+
+        if args.with_contour:
+            contour_s_ori = s[2].to(device)
+            contour_t_ori = t[2].to(device)
+            contour_real_s = canny(contour_s_ori)
+            contour_real_t = canny(contour_t_ori)
+            contour_fake_t = canny(fake_t)
+            gray_fake_s = T.Grayscale()(fake_s)
+            contour_fake_s = canny(gray_fake_s)
+
+            loss_contour_s = contour_loss_func(contour_real_s, contour_fake_t)
+            loss_contour_t = contour_loss_func(contour_real_t, contour_fake_s)
+            loss_g = loss_g + loss_contour_s + loss_contour_t
+
         if args.sem_loss:
             pred_real_s = predict(real_s, sem_net_s, device, 'source')
             pred_fake_t = predict(fake_t, sem_net_t, device, 'target')
@@ -164,9 +180,8 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, sem_net_s, sem_net_t, ga
             pred_real_t = predict(real_t, sem_net_t, device, 'target')
             loss_semantic_t2s = sem_loss_func(pred_fake_s, pred_real_t.max(1).indices) * 1
             # combined loss and calculate gradients
-            loss_g = loss_g_s2t + loss_g_t2s + loss_cycle_s + loss_cycle_t + loss_semantic_s2t + loss_semantic_t2s
-        else:
-            loss_g = loss_g_s2t + loss_g_t2s + loss_cycle_s + loss_cycle_t
+            loss_g = loss_g + loss_semantic_s2t + loss_semantic_t2s
+
         loss_g.backward()
         optim_g.step()
 
