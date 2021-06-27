@@ -78,6 +78,7 @@ def main(args):
     net_seg_s = semantic_segmentation_models.deeplabv2_resnet101().to(device)
     net_seg_t = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(pretrained_backbone=False).to(device)
     canny = Canny(device, threshold=3, batch_size=args.batch_size).to(device)
+    canny.eval()
 
     restart_epoch = 0
     if args.load_model:
@@ -106,7 +107,7 @@ def main(args):
     identity_loss_func = torch.nn.L1Loss()
     contour_loss_func = torch.nn.L1Loss()
     sem_loss_func = loss.SemanticConsistency().to(device)
-    loss_dict = {'g_s2t': [], 'g_t2s': [], 'd_s': [], 'd_t': [], 'cycle_s': [], 'cycle_t': []}
+    loss_dict = {'g_s2t': [], 'g_t2s': [], 'd_s': [], 'd_t': [], 'cycle_s': [], 'cycle_t': [], 'con_s2t': [], 'con_t2s': []}
     epoch_counter_ratio = []
     print("--------START TRAINING--------")
     for epoch in range(restart_epoch, restart_epoch+args.num_epoch):
