@@ -23,9 +23,13 @@ def train_parse():
 
 def translation_parse():
     parser = argparse.ArgumentParser(description='translation options')
+    parser.add_argument('-dataset', type=str, default='freiburg_rgb', help='dataset to be translated.')
     parser.add_argument('-batch_size', type=int, default=1, help='batch size for translation.')
-    parser.add_argument('-checkpoint_name', type=str, default='without_sem.pth',
+    parser.add_argument('-checkpoint_name', type=str, default='freiburg_rgb2ir.pth',
                         help='the name of trained model.')
+    parser.add_argument('-input_nc', type=int, default=3, help='number of generator input channel.')
+    parser.add_argument('-output_nc', type=int, default=1, help='number of generator output channel.')
+    parser.add_argument('-save_image_size', type=tuple, default=(320, 700), help='images are save with this size.')
     return parser
 
 

@@ -24,7 +24,7 @@ def parse_file(file_name):
 
 class Freiburg(data.Dataset):
 
-    def __init__(self, root, split, domain, transforms, with_label, with_contour, grayscale=False):
+    def __init__(self, root, split, domain, transforms, with_label, with_contour, grayscale=False, translation_mode=False):
         """
         :param root: str. root path to the dataset.
         :param split: str. train or test.
@@ -47,7 +47,7 @@ class Freiburg(data.Dataset):
         self.with_label = with_label
         self.with_contour = with_contour
         self.grayscale = grayscale
-
+        self.translation_mode = translation_mode
     def __len__(self):
         return len(self.data_list)
 
@@ -97,6 +97,10 @@ class Freiburg(data.Dataset):
             else:
                 return_item = self.transforms(image), 0
 
+        if self.translation_mode:
+            image = self.transforms(image)
+            translation_name = image_name.replace(str(self.split), "translation")
+            return_item = image, translation_name
         return return_item
 
 
