@@ -116,12 +116,15 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, canny, sem_net_s, sem_ne
     losses_cycle_t = AverageMeter('cycle_t', ':3.4f')
     losses_semantic_s2t = AverageMeter('sem_s2t', ':3.4f')
     losses_semantic_t2s = AverageMeter('sem_t2s', ':3.4f')
+    losses_contour_s2t = AverageMeter('con_s2t', ':3.4f')
+    losses_contour_t2s = AverageMeter('con_t2s', ':3.4f')
+
     iteration_length = min(len(s_data), len(t_data))
     progress = ProgressMeter(
         iteration_length,
         [batch_time, data_time, losses_g_s2t, losses_g_t2s, losses_d_s, losses_d_t,
          losses_cycle_s, losses_cycle_t,
-         losses_semantic_s2t, losses_semantic_t2s],
+         losses_semantic_s2t, losses_semantic_t2s, losses_contour_s2t, losses_contour_t2s],
         prefix="Epoch: [{}]".format(epoch))
 
 
@@ -167,9 +170,11 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, canny, sem_net_s, sem_ne
             gray_fake_s = T.Grayscale()(fake_s)
             contour_fake_s = canny(gray_fake_s)
 
-            loss_contour_s = contour_loss_func(contour_real_s, contour_fake_t)
-            loss_contour_t = contour_loss_func(contour_real_t, contour_fake_s)
-            loss_g = loss_g + loss_contour_s + loss_contour_t
+            loss_contour_s2t = contour_loss_func(contour_real_s, contour_fake_t)
+            loss_contour_t2s = contour_loss_func(contour_real_t, contour_fake_s)
+            loss_g = loss_g + loss_contour_s2t + loss_contour_t2s
+            losses_contour_s2t.update(loss_contour_s2t.item(), real_s.size(0))
+            losses_contour_t2s.update(loss_contour_t2s.item(), real_s.size(0))
 
         if args.sem_loss:
             pred_real_s = predict(real_s, sem_net_s, device, 'source')
@@ -215,18 +220,24 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, canny, sem_net_s, sem_ne
 
         if i % 10 == 0:
             progress.display(i)
-            vis.images(real_s, win='real_s', padding=2, opts=dict(title='real_s', caption='real_s'))
-            vis.images(fake_t, win='fake_t', padding=2, opts=dict(title='fake_t', caption='fake_t'))
-            vis.images(rec_s, win='rec_s', padding=2, opts=dict(title='rec_s', caption='rec_s'))
-            vis.images(real_t, win='real_t', padding=2, opts=dict(title='real_t', caption='real_t'))
-            vis.images(fake_s, win='fake_s', padding=2, opts=dict(title='fake_s', caption='fake_s'))
-            vis.images(rec_t, win='rec_t', padding=2, opts=dict(title='rec_t', caption='rec_t'))
+            #vis.images(real_s, win='real_s', padding=2, opts=dict(title='real_s', caption='real_s'))
+            #vis.images(fake_t, win='fake_t', padding=2, opts=dict(title='fake_t', caption='fake_t'))
+            #vis.images(rec_s, win='rec_s', padding=2, opts=dict(title='rec_s', caption='rec_s'))
+            #vis.images(real_t, win='real_t', padding=2, opts=dict(title='real_t', caption='real_t'))
+            #vis.images(fake_s, win='fake_s', padding=2, opts=dict(title='fake_s', caption='fake_s'))
+            #vis.images(rec_t, win='rec_t', padding=2, opts=dict(title='rec_t', caption='rec_t'))
+
             loss_dict['g_s2t'].append(loss_g_s2t.item())
             loss_dict['g_t2s'].append(loss_g_t2s.item())
             loss_dict['d_s'].append(loss_d_s.item())
             loss_dict['d_t'].append(loss_d_t.item())
             loss_dict['cycle_s'].append(loss_cycle_s.item())
             loss_dict['cycle_t'].append(loss_cycle_t.item())
+            if args.with_contour:
+                vis.images(contour_real_s, win='contour_real_s', padding=2, opts=dict(title='contour_real_s', caption='contour_real_s'))
+                vis.images(contour_fake_t, win='contour_fake_t', padding=2, opts=dict(title='contour_fake_t', caption='contour_fake_t'))
+                loss_dict['con_s2t'].append(loss_contour_s2t.item())
+                loss_dict['con_t2s'].append(loss_contour_t2s.item())
             epoch_counter_ratio.append(epoch+i/iteration_length)
             plot_loss(epoch_counter_ratio, loss_dict, vis)
             # print(loss_dict)
