@@ -1,5 +1,5 @@
 import torch
-from utils import loss, ImagePool
+from utils import loss, ImagePool, set_requires_grad
 from utils import transforms as TT
 from utils import triple_transforms as TTT
 from data import Cityscapes, TrainTDataset, Freiburg
@@ -46,14 +46,14 @@ def main(args):
         TTT.Normalize(args.normalize, args.normalize)
     ])
 
-    source_train_transform = triple_transform
-    target_train_transform = triple_transform
+    source_train_transform = double_transform
+    target_train_transform = single_transform
     # data loading
     if args.source_dataset == 'Cityscapes':
         source_dataset = Cityscapes('datasets/source_dataset', transforms=source_train_transform)
     elif args.source_dataset == 'freiburg_rgb':
         source_dataset = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=source_train_transform,
-                                  with_label=True, with_contour=args.with_contour, grayscale=args.grayscale)
+                                  with_label=True, grayscale=args.grayscale)
     else:
         raise ValueError('source dataset does not exist.')
 
@@ -61,7 +61,7 @@ def main(args):
         target_dataset = TrainTDataset('datasets/target_dataset', transforms=target_train_transform)
     elif args.target_dataset == 'freiburg_ir':
         target_dataset = Freiburg('datasets/freiburg', split='train', domain='IR', transforms=target_train_transform,
-                                  with_label=False, with_contour=args.with_contour)
+                                  with_label=False)
     else:
         raise ValueError('target dataset does not exist.')
 
@@ -77,8 +77,12 @@ def main(args):
     net_d_t = discriminators.NLayerDiscriminator(input_nc=args.t2s_input_nc).to(device)
     net_seg_s = semantic_segmentation_models.deeplabv2_resnet101().to(device)
     net_seg_t = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(pretrained_backbone=False).to(device)
-    canny = Canny(device, threshold=3, batch_size=args.batch_size).to(device)
-    canny.eval()
+    canny_thermal = Canny(device, threshold=1, batch_size=args.batch_size).to(device)
+    canny_rgb = Canny(device, threshold=2, batch_size=args.batch_size).to(device)
+    set_requires_grad(canny_thermal, False)
+    set_requires_grad(canny_rgb, False)
+
+    canny = {'thermal': canny_thermal, 'rgb': canny_rgb}
 
     restart_epoch = 0
     if args.load_model:
