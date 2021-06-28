@@ -24,7 +24,7 @@ def parse_file(file_name):
 
 class Freiburg(data.Dataset):
 
-    def __init__(self, root, split, domain, transforms, with_label, with_contour, grayscale=False, translation_mode=False):
+    def __init__(self, root, split, domain, transforms, with_label, grayscale=False, translation_mode=False):
         """
         :param root: str. root path to the dataset.
         :param split: str. train or test.
@@ -45,9 +45,9 @@ class Freiburg(data.Dataset):
         self.domain = domain
         self.transforms = transforms
         self.with_label = with_label
-        self.with_contour = with_contour
         self.grayscale = grayscale
         self.translation_mode = translation_mode
+
     def __len__(self):
         return len(self.data_list)
 
@@ -84,18 +84,10 @@ class Freiburg(data.Dataset):
             label = np.array(Image.open(os.path.join(label_name)).resize((960, 320), Image.NEAREST), dtype=np.uint8)
             label = label[:, 150:850]
             label = Image.fromarray(label, mode='L')
-            if self.with_contour:
-                image, label, contour = self.transforms(image, label, image.convert('L'))
-                return_item = image, np.array(label, dtype=np.int64), contour
-            else:
-                image, label = self.transforms(image, label)
-                return_item = image, np.array(label, dtype=np.int64)
+            image, label = self.transforms(image, label)
+            return_item = image, np.array(label, dtype=np.int64)
         else:
-            if self.with_contour:
-                image, empty_label, contour = self.transforms(image, Image.fromarray(np.zeros(image.size)), image.convert('L'))
-                return_item = image, np.array(empty_label), contour
-            else:
-                return_item = self.transforms(image), 0
+            return_item = self.transforms(image), 0
 
         if self.translation_mode:
             image = self.transforms(image)
