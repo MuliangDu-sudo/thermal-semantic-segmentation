@@ -164,11 +164,11 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, canny, sem_net_s, sem_ne
         if args.with_contour:
             contour_s_ori = T.Grayscale()(s[0]).to(device)
             contour_t_ori = t[0].to(device)
-            contour_real_s = canny['rgb'](contour_s_ori)
-            contour_real_t = canny['thermal'](contour_t_ori)
-            contour_fake_t = canny['thermal'](fake_t)
+            contour_real_s = canny['rgb'](contour_s_ori).detach()
+            contour_real_t = canny['thermal'](contour_t_ori).detach()
+            contour_fake_t = canny['thermal'](fake_t).detach()
             gray_fake_s = T.Grayscale()(fake_s)
-            contour_fake_s = canny['rgb'](gray_fake_s)
+            contour_fake_s = canny['rgb'](gray_fake_s).detach()
 
             loss_contour_s2t = contour_loss_func(contour_real_s, contour_fake_t)
             loss_contour_t2s = contour_loss_func(contour_real_t, contour_fake_s)
