@@ -168,8 +168,8 @@ def train(args, s_data, t_data, g_s2t, d_t, canny, gan_loss_func, contour_loss_f
 
         if i % 10 == 0:
             progress.display(i)
-            vis.images(real_s, win='real_s', padding=2, opts=dict(title='real_s', caption='real_s'))
-            vis.images(fake_t, win='fake_t', padding=2, opts=dict(title='fake_t', caption='fake_t'))
+            vis.images(real_s[0], win='real_s', padding=2, opts=dict(title='real_s', caption='real_s'))
+            vis.images(fake_t[0], win='fake_t', padding=2, opts=dict(title='fake_t', caption='fake_t'))
             #vis.images(rec_s, win='rec_s', padding=2, opts=dict(title='rec_s', caption='rec_s'))
             #vis.images(real_t, win='real_t', padding=2, opts=dict(title='real_t', caption='real_t'))
             #vis.images(fake_s, win='fake_s', padding=2, opts=dict(title='fake_s', caption='fake_s'))
@@ -177,8 +177,8 @@ def train(args, s_data, t_data, g_s2t, d_t, canny, gan_loss_func, contour_loss_f
             loss_dict['g_s2t'].append(loss_g.item())
             loss_dict['d_t'].append(loss_d_t.item())
             if args.with_contour:
-                vis.images(contour_real_s, win='contour_real_s', padding=2, opts=dict(title='contour_real_s', caption='contour_real_s'))
-                vis.images(contour_fake_t, win='contour_fake_t', padding=2, opts=dict(title='contour_fake_t', caption='contour_fake_t'))
+                vis.images(contour_real_s[0], win='contour_real_s', padding=2, opts=dict(title='contour_real_s', caption='contour_real_s'))
+                vis.images(contour_fake_t[0], win='contour_fake_t', padding=2, opts=dict(title='contour_fake_t', caption='contour_fake_t'))
                 loss_dict['con_s2t'].append(loss_contour_s2t.item())
             epoch_counter_ratio.append(epoch+i/iteration_length)
             plot_loss(epoch_counter_ratio, loss_dict, vis)
