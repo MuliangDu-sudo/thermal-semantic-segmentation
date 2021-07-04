@@ -7,6 +7,7 @@ import os
 from torchvision import transforms as T
 from train import Denormalize
 from options import translation_parse
+from tqdm import tqdm
 
 
 def translate(args):
@@ -14,7 +15,7 @@ def translate(args):
     source_translate_transform = T.Compose([
         T.Resize(size=(256, 512)),
         T.ToTensor(),
-        T.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        T.Normalize((0.5,), (0.5,))
     ])
 
     source_reverse_transform = T.Compose([
@@ -25,8 +26,8 @@ def translate(args):
     if args.dataset == 'Cityscapes':
         translate_datasets = Cityscapes('datasets/source_dataset', transforms=source_translate_transform, train_mode=False)
     elif args.dataset == 'freiburg_rgb':
-        translate_datasets = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=source_translate_transform,
-                                      with_label=False, with_contour=False, translation_mode=True)
+        translate_datasets = Freiburg('datasets/freiburg', split='train', domain='RGB', grayscale=True, transforms=source_translate_transform,
+                                      with_label=False, translation_mode=True, translation_name=args.checkpoint_name.replace('.pth', ''))
     else:
         raise ValueError('dataset does not exist.')
     translate_dataloader = DataLoader(translate_datasets, batch_size=args.batch_size,
