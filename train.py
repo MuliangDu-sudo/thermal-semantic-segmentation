@@ -106,25 +106,29 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, canny, sem_net_s, sem_ne
     :param device:
     :return:
     """
-    batch_time = AverageMeter('Time', ':4.2f')
-    data_time = AverageMeter('Data', ':3.1f')
+    # batch_time = AverageMeter('Time', ':4.2f')
+    # data_time = AverageMeter('Data', ':3.1f')
     losses_g_s2t = AverageMeter('g_s2t', ':3.4f')
     losses_g_t2s = AverageMeter('g_t2s', ':3.4f')
     losses_d_s = AverageMeter('d_s', ':3.4f')
     losses_d_t = AverageMeter('d_t', ':3.4f')
     losses_cycle_s = AverageMeter('cycle_s', ':3.4f')
     losses_cycle_t = AverageMeter('cycle_t', ':3.4f')
-    losses_semantic_s2t = AverageMeter('sem_s2t', ':3.4f')
-    losses_semantic_t2s = AverageMeter('sem_t2s', ':3.4f')
+    # losses_semantic_s2t = AverageMeter('sem_s2t', ':3.4f')
+    # losses_semantic_t2s = AverageMeter('sem_t2s', ':3.4f')
     losses_contour_s2t = AverageMeter('con_s2t', ':3.4f')
     losses_contour_t2s = AverageMeter('con_t2s', ':3.4f')
 
     iteration_length = min(len(s_data), len(t_data))
     progress = ProgressMeter(
         iteration_length,
-        [batch_time, data_time, losses_g_s2t, losses_g_t2s, losses_d_s, losses_d_t,
+        [
+        # batch_time, data_time,
+         losses_g_s2t, losses_g_t2s,
+         losses_d_s, losses_d_t,
          losses_cycle_s, losses_cycle_t,
-         losses_semantic_s2t, losses_semantic_t2s, losses_contour_s2t, losses_contour_t2s],
+         # losses_semantic_s2t, losses_semantic_t2s,
+         losses_contour_s2t, losses_contour_t2s],
         prefix="Epoch: [{}]".format(epoch))
 
 
@@ -136,7 +140,7 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, canny, sem_net_s, sem_ne
         real_t = t[0].float().to(device)
         label_s = s[1].float().to(device)
 
-        data_time.update(time.time() - end)
+        # data_time.update(time.time() - end)
 
         # forward pass
         fake_t = g_s2t(real_s)
@@ -162,13 +166,23 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, canny, sem_net_s, sem_ne
         loss_g = loss_g_s2t + loss_g_t2s + loss_cycle_s + loss_cycle_t
 
         if args.with_contour:
-            contour_s_ori = T.Grayscale()(s[0]).to(device)
+            # below is for rgb2ir.
+            # contour_s_ori = T.Grayscale()(s[0]).to(device)
+            # contour_t_ori = t[0].to(device)
+            # contour_real_s = canny['rgb'](contour_s_ori).detach()
+            # contour_real_t = canny['thermal'](contour_t_ori).detach()
+            # contour_fake_t = canny['thermal'](fake_t).detach()
+            # gray_fake_s = T.Grayscale()(fake_s)
+            # contour_fake_s = canny['rgb'](gray_fake_s).detach()
+
+            # below is for gray2ir
+            contour_s_ori = s[0].to(device)
             contour_t_ori = t[0].to(device)
-            contour_real_s = canny['rgb'](contour_s_ori).detach()
+            contour_real_s = canny['thermal'](contour_s_ori).detach()
             contour_real_t = canny['thermal'](contour_t_ori).detach()
             contour_fake_t = canny['thermal'](fake_t).detach()
-            gray_fake_s = T.Grayscale()(fake_s)
-            contour_fake_s = canny['rgb'](gray_fake_s).detach()
+            gray_fake_s = fake_s
+            contour_fake_s = canny['thermal'](gray_fake_s).detach()
 
             loss_contour_s2t = contour_loss_func(contour_real_s, contour_fake_t)
             loss_contour_t2s = contour_loss_func(contour_real_t, contour_fake_s)
@@ -212,11 +226,11 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, canny, sem_net_s, sem_ne
         losses_cycle_s.update(loss_cycle_s.item(), real_s.size(0))
         losses_cycle_t.update(loss_cycle_t.item(), real_s.size(0))
 
-        if args.sem_loss:
-            losses_semantic_s2t.update(loss_semantic_s2t.item(), real_s.size(0))
-            losses_semantic_t2s.update(loss_semantic_t2s.item(), real_s.size(0))
-        batch_time.update(time.time() - end)
-        end = time.time()
+        # if args.sem_loss:
+        #     losses_semantic_s2t.update(loss_semantic_s2t.item(), real_s.size(0))
+        #     losses_semantic_t2s.update(loss_semantic_t2s.item(), real_s.size(0))
+        # batch_time.update(time.time() - end)
+        # end = time.time()
 
         if i % 10 == 0:
             progress.display(i)
