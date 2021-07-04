@@ -14,13 +14,17 @@ class DistanceDataset(Dataset):
         self.translate_name = translate_name
         self.split = split
         self.domain = domain
+        self.transform = T.Compose([
+            T.ToTensor(),
+            # T.Normalize((0.5,), (0.5,))
+        ])
 
     def __len__(self):
         return len(self.data_list)
 
     def __getitem__(self, item):
         ori_name = self.data_list[item]
-        trans_name = ori_name.replace(self.split, self.translate_name)
+        trans_name = ori_name.replace(self.split, self.translate_name).replace('ir_aligned', 'rgb')
         if self.domain == 'IR':
             image = np.array(Image.open(os.path.join(ori_name)).resize((960, 320), Image.BICUBIC),  dtype=np.float32)
             image = image[:, 150:850]
@@ -42,4 +46,4 @@ class DistanceDataset(Dataset):
         else:
             raise ValueError('Not a valid domain.')
         trans_image = Image.open(os.path.join(trans_name))
-        return T.ToTensor()(ori_image), T.ToTensor()(trans_image)
+        return self.transform(ori_image), self.transform(trans_image)
