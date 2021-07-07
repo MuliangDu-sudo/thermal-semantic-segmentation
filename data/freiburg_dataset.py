@@ -24,7 +24,8 @@ def parse_file(file_name):
 
 class Freiburg(data.Dataset):
 
-    def __init__(self, root, split, domain, transforms, with_label, grayscale=False, translation_mode=False, translation_name='translation'):
+    def __init__(self, root, split, domain, transforms, with_label, grayscale=False, translation_mode=False,
+                 translation_name='translation', segmentation_mode=False):
         """
         :param root: str. root path to the dataset.
         :param split: str. train or test.
@@ -48,7 +49,7 @@ class Freiburg(data.Dataset):
         self.grayscale = grayscale
         self.translation_mode = translation_mode
         self.translation_name = translation_name
-
+        self.segmentation_mode = segmentation_mode
     def __len__(self):
         return len(self.data_list)
 
@@ -56,7 +57,7 @@ class Freiburg(data.Dataset):
 
         image_name = self.data_list[item]
         label_name = self.label_list[item]
-        if self.domain == 'IR':
+        if self.domain == 'IR' and not self.segmentation_mode:
             image = np.array(Image.open(os.path.join(image_name)).resize((960, 320), Image.BICUBIC),  dtype=np.float32)
             image = image[:, 150:850]
             # normalize IR data (is in range 0, 2**16 --> crop to relevant range(20800, 27000))
@@ -68,7 +69,7 @@ class Freiburg(data.Dataset):
 
             image = (image - minval) / (maxval - minval)
             image = Image.fromarray(image)
-        elif self.domain == 'RGB':
+        elif self.domain == 'RGB' and not self.segmentation_mode:
             if self.grayscale:
                 image = np.array(ImageOps.grayscale(Image.open(os.path.join(image_name)).convert('RGB')).resize((960, 320), Image.BICUBIC),
                                  dtype=np.float32)
@@ -78,6 +79,11 @@ class Freiburg(data.Dataset):
                              dtype=np.float32)
                 image = image[:, 150:850, :]
             image = Image.fromarray(np.uint8(image))
+
+        elif self.segmentation_mode:
+            image_name = image_name.replace(str(self.split), self.translation_name)
+            image = Image.open(os.path.join(image_name))
+
         else:
             raise ValueError('Not a valid domain.')
 
@@ -94,6 +100,7 @@ class Freiburg(data.Dataset):
             image = self.transforms(image)
             translation_name = image_name.replace(str(self.split), self.translation_name)
             return_item = image, translation_name
+
         return return_item
 
 
@@ -135,5 +142,3 @@ class FreiburgTest(Freiburg):
         else:
             image = self.transforms(image)
             return image
-
-

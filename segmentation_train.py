@@ -104,6 +104,9 @@ def seg_main(args):
     elif args.dataset == 'freiburg_rgb':
         source_dataset = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=train_transform,
                                   with_label=True)
+    elif args.dataset == 'freiburg_translation':
+        source_dataset = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=train_transform,
+                                  with_label=True, segmentation_mode=True, translation_name=args.translation_name)
     else:
         raise ValueError('dataset does not exist.')
     # Creating data indices for training and validation splits:

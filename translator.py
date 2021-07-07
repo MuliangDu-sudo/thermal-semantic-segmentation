@@ -15,7 +15,7 @@ def translate(args):
     source_translate_transform = T.Compose([
         T.Resize(size=(256, 512)),
         T.ToTensor(),
-        T.Normalize((0.5,), (0.5,))
+        T.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
 
     source_reverse_transform = T.Compose([
@@ -26,7 +26,7 @@ def translate(args):
     if args.dataset == 'Cityscapes':
         translate_datasets = Cityscapes('datasets/source_dataset', transforms=source_translate_transform, train_mode=False)
     elif args.dataset == 'freiburg_rgb':
-        translate_datasets = Freiburg('datasets/freiburg', split='train', domain='RGB', grayscale=True, transforms=source_translate_transform,
+        translate_datasets = Freiburg('datasets/freiburg', split='train', domain='RGB', grayscale=False, transforms=source_translate_transform,
                                       with_label=False, translation_mode=True, translation_name=args.checkpoint_name.replace('.pth', ''))
     else:
         raise ValueError('dataset does not exist.')
@@ -53,7 +53,43 @@ def translate(args):
             print('translation: [{}/{}]'.format(i, len(translate_dataloader)))
 
 
+def convert_freiburg(args):
+    source_translate_transform = T.Compose([
+        T.Resize(size=(256, 512)),
+        T.ToTensor(),
+        T.Normalize((0.5,), (0.5,))
+    ])
+
+    source_reverse_transform = T.Compose([
+        Denormalize((0.5,), (0.5, )),
+        T.Resize(size=args.save_image_size),
+        T.ToPILImage()
+    ])
+
+    datasets = Freiburg('datasets/freiburg', split='train', domain='IR', grayscale=False,
+                                  transforms=source_translate_transform,
+                                  with_label=False, translation_mode=True,
+                                  translation_name='convert')
+
+    dataloader = DataLoader(datasets, batch_size=args.batch_size,
+                                      shuffle=False, num_workers=2, pin_memory=True, drop_last=True)
+
+    for i, [images, image_names] in enumerate(dataloader):
+        images = images.to(device)[0]
+        image_name = image_names[0]
+        images = source_reverse_transform(images)
+        path_split = image_name.split("/")[:-1]     # to extract the path to save translation image
+        image_save_path = "/".join(path_split)
+        if not os.path.exists(image_save_path):
+            os.makedirs(image_save_path)
+        images.save(os.path.join(image_name))
+
+        if i % 100 == 0:
+            print('translation: [{}/{}]'.format(i, len(dataloader)))
+
+
 if __name__ == '__main__':
     trans_args = translation_parse().parse_args()
     translate(trans_args)
+    # convert_freiburg(trans_args)
 

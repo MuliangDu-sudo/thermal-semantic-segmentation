@@ -13,6 +13,7 @@ import numpy as np
 from utils.eval_tools import evaluate
 from options import seg_parse
 from PIL import ImageFile
+from tqdm import tqdm
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -26,8 +27,8 @@ def seg_validate(args, sem_net, val_data, loss_func, device, vis):
     prediction_list, label_list = [], []
     print(len(val_data))
     random_id = np.random.choice(len(val_data), args.num_samples_show)
-    i = 0
-    for item in val_data:
+    # i = 0
+    for item in tqdm(val_data):
         image = item[0].to(device)
         label = item[1].to(device)
         # print(np.unique(label.cpu().numpy()))
@@ -41,14 +42,14 @@ def seg_validate(args, sem_net, val_data, loss_func, device, vis):
         label_list.append(label.cpu().numpy())
         prediction_list.append(predictions)
         val_loss.update(loss.item(), image.size(0))
-        if i in random_id:
-            vis.images(image[0], win='image [{}]'.format(i), padding=2,
-                       opts=dict(title='image [{}]'.format(i), caption='image [{}]'.format(i)))
-            vis.images(np.uint8(label[0].cpu().numpy()), win='label [{}]'.format(i), padding=2,
-                       opts=dict(title='label [{}]'.format(i), caption='label [{}]'.format(i)))
-            vis.images(np.uint8(predictions[0]), win='prediction [{}]'.format(i), padding=2,
-                       opts=dict(title='prediction [{}]'.format(i), caption='prediction [{}]'.format(i)))
-        i += 1
+        # if i in random_id:
+        #     vis.images(image[0], win='image [{}]'.format(i), padding=2,
+        #                opts=dict(title='image [{}]'.format(i), caption='image [{}]'.format(i)))
+        #     vis.images(np.uint8(label[0].cpu().numpy()), win='label [{}]'.format(i), padding=2,
+        #                opts=dict(title='label [{}]'.format(i), caption='label [{}]'.format(i)))
+        #     vis.images(np.uint8(predictions[0]), win='prediction [{}]'.format(i), padding=2,
+        #                opts=dict(title='prediction [{}]'.format(i), caption='prediction [{}]'.format(i)))
+        # i += 1
 
     label_list = np.concatenate(label_list)
     prediction_list = np.concatenate(prediction_list)
@@ -68,7 +69,7 @@ def seg_evaluation(args):
         # T.Normalize((0.5,), (0.5,))
     ])
 
-    validation_split = .05
+    validation_split = .2
     shuffle_dataset = True
     random_seed = 42
     if args.dataset == 'cityscapes_translation':
@@ -77,8 +78,8 @@ def seg_evaluation(args):
     elif args.dataset == 'cityscapes':
         source_dataset = Cityscapes('datasets/source_dataset', transforms=train_transform)
 
-    elif args.dataset == 'freiburg_ir':
-        source_dataset = FreiburgTest('datasets/freiburg', split='test', domain='IR', transforms=train_transform,
+    elif args.dataset == 'freiburg_translation':
+        source_dataset = Freiburg('datasets/freiburg', split='train', domain='IR', transforms=train_transform,
                                       with_label=True)
     elif args.dataset == 'freiburg_rgb':
         source_dataset = FreiburgTest('datasets/freiburg', split='test', domain='RGB', transforms=train_transform,
