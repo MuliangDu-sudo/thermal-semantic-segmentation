@@ -106,8 +106,9 @@ class Freiburg(data.Dataset):
 
 class FreiburgTest(Freiburg):
 
-    def __init__(self, root, split, domain, transforms, with_label):
-        super(FreiburgTest, self).__init__(root, split, domain, transforms, with_label)
+    def __init__(self, root, split, domain, transforms, with_label, translation_name='translation'):
+        super(FreiburgTest, self).__init__(root, split, domain, transforms, with_label, grayscale=False, translation_mode=False,
+                 translation_name='translation', segmentation_mode=False)
 
     def __getitem__(self, item):
 
@@ -141,4 +142,7 @@ class FreiburgTest(Freiburg):
             return image, np.array(label, dtype=np.int64)
         else:
             image = self.transforms(image)
-            return image
+            translation_name = image_name.replace(str(self.split), self.split + '_' + self.translation_name)
+            return image, translation_name
+
+

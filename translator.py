@@ -1,7 +1,7 @@
 import torch
 from models import generators
 from main import device, MODEL_ROOT_PATH
-from data import Cityscapes, Freiburg
+from data import Cityscapes, Freiburg, FreiburgTest
 from torch.utils.data import DataLoader
 import os
 from torchvision import transforms as T
@@ -28,6 +28,9 @@ def translate(args):
     elif args.dataset == 'freiburg_rgb':
         translate_datasets = Freiburg('datasets/freiburg', split='train', domain='RGB', grayscale=False, transforms=source_translate_transform,
                                       with_label=False, translation_mode=True, translation_name=args.checkpoint_name.replace('.pth', ''))
+    elif args.datasets == 'freiburg_test':
+        translate_datasets = FreiburgTest('datasets/freiburg', split='test', domain='RGB', transforms=source_translate_transform,
+                                      with_label=False, translation_name=args.checkpoint_name.replace('.pth', ''))
     else:
         raise ValueError('dataset does not exist.')
     translate_dataloader = DataLoader(translate_datasets, batch_size=args.batch_size,
