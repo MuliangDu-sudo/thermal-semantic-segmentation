@@ -1,9 +1,10 @@
 from models import thermal_semantic_segmentation_models
 import torch
 from utils import transforms as T
+from torchvision import transforms as TT
 import os
 from PIL import ImageFile
-from utils import AverageMeter, set_requires_grad, ProgressMeter, plot_loss
+from utils import AverageMeter, freiburg_prediction_visualize, freiburg_palette
 import time
 from data import CityscapesTranslation, Cityscapes, FreiburgTest, Freiburg
 from torch.utils.data import DataLoader
@@ -12,7 +13,7 @@ from torch.utils.data.sampler import SubsetRandomSampler
 import numpy as np
 from utils.eval_tools import evaluate
 from options import seg_parse
-from PIL import ImageFile
+from PIL import ImageFile, Image
 from tqdm import tqdm
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -28,12 +29,9 @@ def seg_validate(args, sem_net, val_data, loss_func, device, vis):
     print(len(val_data))
     random_id = np.random.choice(len(val_data), args.num_samples_show)
     # i = 0
-    for item in tqdm(val_data):
+    for i, item in enumerate(tqdm(val_data)):
         image = item[0].to(device)
         label = item[1].to(device)
-        # print(np.unique(label.cpu().numpy()))
-        # print(image[0].shape)
-        # print(label[0].unsqueeze(dim=0).shape)
         outputs = sem_net(image)
         outputs = torch.nn.Upsample(size=(256, 512), mode='bilinear', align_corners=True)(outputs)
         loss = loss_func(outputs, label)
@@ -50,6 +48,17 @@ def seg_validate(args, sem_net, val_data, loss_func, device, vis):
         #     vis.images(np.uint8(predictions[0]), win='prediction [{}]'.format(i), padding=2,
         #                opts=dict(title='prediction [{}]'.format(i), caption='prediction [{}]'.format(i)))
         # i += 1
+        if args.visualize_prediction:
+            if i % 1 == 0:
+                new_mask = freiburg_prediction_visualize(predictions[0], freiburg_palette())
+                label = freiburg_prediction_visualize(label[0].squeeze_(1).cpu().numpy(), freiburg_palette())
+                save_path_root = 'predictions/{}'.format(args.checkpoint_name.replace('.pth', ''))
+                if not os.path.exists(save_path_root):
+                    os.makedirs(save_path_root)
+                image = TT.ToPILImage()(image[0])
+                new_mask.save(os.path.join(save_path_root, str(i)+'_prediction.png'))
+                image.save(os.path.join(save_path_root, str(i)+'_image.png'))
+                label.save(os.path.join(save_path_root, str(i) + '_groundtruth.png'))
 
     label_list = np.concatenate(label_list)
     prediction_list = np.concatenate(prediction_list)
@@ -79,7 +88,7 @@ def seg_evaluation(args):
         source_dataset = Cityscapes('datasets/source_dataset', transforms=train_transform)
 
     elif args.dataset == 'freiburg_translation':
-        source_dataset = Freiburg('datasets/freiburg', split='train', domain='IR', transforms=train_transform,
+        source_dataset = FreiburgTest('datasets/freiburg', split='test', domain='IR', transforms=train_transform,
                                       with_label=True)
     elif args.dataset == 'freiburg_rgb':
         source_dataset = FreiburgTest('datasets/freiburg', split='test', domain='RGB', transforms=train_transform,

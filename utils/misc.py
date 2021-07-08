@@ -7,7 +7,7 @@ from torch.nn import init
 import functools
 import numpy as np
 import glob
-
+from PIL import Image
 
 class AverageMeter(object):
     r"""Computes and stores the average and current value.
@@ -285,6 +285,41 @@ def plot_loss(epoch_counter_ratio, losses, vis):
             'xlabel': 'epoch',
             'ylabel': 'loss'},
         win='loss')
+
+
+def freiburg_palette():
+    palette = [128, 64, 128, 244, 35, 232, 70, 70, 70, 102, 102, 156, 190, 153, 153, 250, 170, 30, 107, 142, 35, 152, 251, 152,
+               70, 130, 180, 220, 20, 60, 0,  0, 142, 119, 11, 32]
+    zero_pad = 256 * 3 - len(palette)
+    for i in range(zero_pad):
+        palette.append(0)
+    return palette
+
+
+def freiburg_prediction_visualize(predictions, palette):
+    """
+    :param predictions:
+    :param palette:
+    :return:
+    id  |       class          |   RGB
+    0   |   road,parking       | (128, 64, 128)
+    1   |   ground,sidewalk    | (244, 35, 232)
+    2   |   building           | (70, 70, 70)
+    3   |   curb               | (102, 102, 156)
+    4   |   fence              | (190, 153, 153)
+    5   |   pole,traffic light | (250, 170, 30)
+    6   |   vegetation         | (107, 142, 35)
+    7   |   terrain            | (152, 251, 152)
+    8   |   sky                | (70, 130, 180)
+    9   |   person, rider      | (220, 20, 60)
+    10  |   vehicles           | (0,  0, 142)
+    11  |   motor-, bicycle    | (119, 11, 32)
+    *   |   unlabeled          | (0, 0, 0)
+    """
+
+    new_predictions = Image.fromarray(predictions.astype(np.uint8)).convert('P')    # convert to 8-bit colored image
+    new_predictions.putpalette(palette)
+    return new_predictions
 
 
 if __name__=="__main__":
