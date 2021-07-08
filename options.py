@@ -38,7 +38,7 @@ def seg_parse():
     parser.add_argument('-load_model', default=False, help='train with pretrained model.')
     parser.add_argument('-epochs', default=50, help='number of epochs to train.')
     parser.add_argument('-batch_size', type=int, default=16, help='batch size.')
-    parser.add_argument('-val_batch_size', type=int, default=8, help='validation batch size.')
+    parser.add_argument('-val_batch_size', type=int, default=1, help='validation batch size.')
     parser.add_argument('-checkpoint_name', type=str, default='freiburg_rgb2ir_2_segmentation.pth',
                         help='the name of trained model.')
     parser.add_argument('-num_samples_show', type=int, default=3, help='number of samples to show in visdom.')
@@ -48,4 +48,5 @@ def seg_parse():
     parser.add_argument('-lr', type=float, default=0.001, help='learning rate')
     parser.add_argument('-data_split', type=bool, default=False, help='whether to split dataset.')
     parser.add_argument('-translation_name', type=str, default='freiburg_rgb2ir_2', help='whether to split dataset.')
+    parser.add_argument('-visualize_prediction', type=bool, default=True, help='whether to save visualized prediction.')
     return parser
