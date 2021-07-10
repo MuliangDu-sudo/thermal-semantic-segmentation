@@ -77,8 +77,8 @@ def main(args):
     net_d_t = discriminators.NLayerDiscriminator(input_nc=args.t2s_input_nc).to(device)
     net_seg_s = semantic_segmentation_models.deeplabv2_resnet101().to(device)
     net_seg_t = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(pretrained_backbone=False).to(device)
-    canny_thermal = Canny(device, threshold=1, batch_size=args.batch_size).to(device)
-    canny_rgb = Canny(device, threshold=2, batch_size=args.batch_size).to(device)
+    canny_thermal = Canny(device, threshold=args.canny_thermal_threshold, batch_size=args.batch_size).to(device)
+    canny_rgb = Canny(device, threshold=args.canny_rgb_threshold, batch_size=args.batch_size).to(device)
     set_requires_grad(canny_thermal, False)
     set_requires_grad(canny_rgb, False)
 
@@ -111,8 +111,8 @@ def main(args):
     identity_loss_func = torch.nn.L1Loss()
     contour_loss_func = torch.nn.L1Loss()
     sem_loss_func = loss.SemanticConsistency().to(device)
-    # loss_dict = {'g_s2t': [], 'g_t2s': [], 'd_s': [], 'd_t': [], 'cycle_s': [], 'cycle_t': [], 'con_s2t': [], 'con_t2s': []}
-    loss_dict = {'g_s2t': [], 'g_t2s': [], 'd_s': [], 'd_t': [], 'cycle_s': [], 'cycle_t': []}
+    loss_dict = {'g_s2t': [], 'g_t2s': [], 'd_s': [], 'd_t': [], 'cycle_s': [], 'cycle_t': [], 'con_s2t': [], 'con_t2s': []}
+    # loss_dict = {'g_s2t': [], 'g_t2s': [], 'd_s': [], 'd_t': [], 'cycle_s': [], 'cycle_t': []}
     epoch_counter_ratio = []
     print("--------START TRAINING--------")
     for epoch in range(restart_epoch, restart_epoch+args.num_epoch):
