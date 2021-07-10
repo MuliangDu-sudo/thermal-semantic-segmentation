@@ -1,4 +1,4 @@
-from models import thermal_semantic_segmentation_models
+from models import thermal_semantic_segmentation_models, semantic_segmentation_models
 import torch
 from utils import transforms as T
 import os
@@ -130,7 +130,7 @@ def seg_main(args):
         net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(num_classes=args.num_classes,
                                                                                pretrained_backbone=False).to(device)
     elif args.net_mode == 'three_channels':
-        net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(num_classes=args.num_classes,
+        net = semantic_segmentation_models.deeplabv2_resnet101(num_classes=args.num_classes,
                                                                                pretrained_backbone=False).to(device)
     else:
         raise ValueError('net mode does not exist.')
@@ -147,10 +147,10 @@ def seg_main(args):
         if 'lowest_val_loss' in load_checkpoint:
             lowest_val_loss = load_checkpoint['lowest_val_loss']
 
-    optimizer = torch.optim.Adam(net.parameters(), lr=0.0001)
+    optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', verbose=True)
 
-    loss_function = torch.nn.CrossEntropyLoss(ignore_index=12, reduction='mean')
+    loss_function = torch.nn.CrossEntropyLoss(ignore_index=args.ignore_index, reduction='mean')
     loss_dict = {'train_loss': [], 'epoch_counter_ratio': []}
     for epoch in range(restart_epoch, restart_epoch+args.epochs):
         print("--------START TRAINING [EPOCH: {}]--------".format(epoch))
