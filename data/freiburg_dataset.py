@@ -106,9 +106,8 @@ class Freiburg(data.Dataset):
 
 class FreiburgTest(Freiburg):
 
-    def __init__(self, root, split, domain, transforms, with_label, translation_name='translation'):
-        super(FreiburgTest, self).__init__(root, split, domain, transforms, with_label, grayscale=False, translation_mode=False,
-                 translation_name='translation', segmentation_mode=False)
+    def __init__(self, root, split, domain, transforms, with_label, grayscale=False):
+        super(FreiburgTest, self).__init__(root, split, domain, transforms, with_label, grayscale)
 
     def __getitem__(self, item):
 
@@ -127,9 +126,14 @@ class FreiburgTest(Freiburg):
             image = (image - minval) / (maxval - minval)
             image = Image.fromarray(image)
         elif self.domain == 'RGB':
-            image = np.array(Image.open(os.path.join(image_name)).convert('RGB').resize((960, 320), Image.BICUBIC),
-                             dtype=np.float32)
-            image = image[:, 150:850, :]
+            if self.grayscale:
+                image = np.array(ImageOps.grayscale(Image.open(os.path.join(image_name)).convert('RGB')).resize((960, 320), Image.BICUBIC),
+                                 dtype=np.float32)
+                image = image[:, 150:850]
+            else:
+                image = np.array(Image.open(os.path.join(image_name)).convert('RGB').resize((960, 320), Image.BICUBIC),
+                                 dtype=np.float32)
+                image = image[:, 150:850, :]
             image = Image.fromarray(np.uint8(image))
         else:
             raise ValueError('Not a valid domain.')
@@ -142,7 +146,5 @@ class FreiburgTest(Freiburg):
             return image, np.array(label, dtype=np.int64)
         else:
             image = self.transforms(image)
-            translation_name = image_name.replace(str(self.split), self.split + '_' + self.translation_name)
-            return image, translation_name
-
+            return image
 

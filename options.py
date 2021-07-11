@@ -31,6 +31,10 @@ def translation_parse():
     parser.add_argument('-input_nc', type=int, default=1, help='number of generator input channel.')
     parser.add_argument('-output_nc', type=int, default=1, help='number of generator output channel.')
     parser.add_argument('-save_image_size', type=tuple, default=(320, 700), help='images are save with this size.')
+    parser.add_argument('-normalize', type=tuple, default=(0.5, ),
+                        help='normalization in source data transform. '
+                             'single value for one channel, triple for three.')
+    parser.add_argument('-grayscale', type=bool, default=True, help='convert image to grayscale.')
     return parser
 
 
