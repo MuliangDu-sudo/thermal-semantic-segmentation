@@ -15,11 +15,11 @@ def translate(args):
     source_translate_transform = T.Compose([
         T.Resize(size=(256, 512)),
         T.ToTensor(),
-        T.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        T.Normalize(args.normalize, args.normalize)
     ])
 
     source_reverse_transform = T.Compose([
-        Denormalize((0.5,), (0.5, )),
+        Denormalize(args.denormalize, args.denormalize),
         T.Resize(size=args.save_image_size),
         T.ToPILImage()
     ])
@@ -28,7 +28,10 @@ def translate(args):
     elif args.dataset == 'freiburg_rgb':
         translate_datasets = Freiburg('datasets/freiburg', split='train', domain='RGB', grayscale=False, transforms=source_translate_transform,
                                       with_label=False, translation_mode=True, translation_name=args.checkpoint_name.replace('.pth', ''))
-    elif args.datasets == 'freiburg_test':
+    elif args.dataset == 'freiburg_ir':
+        translate_datasets = Freiburg('datasets/freiburg', split='train', domain='IR', grayscale=False, transforms=source_translate_transform,
+                                      with_label=False, translation_mode=True, translation_name=args.checkpoint_name.replace('.pth', '')+'_2rgb')
+    elif args.dataset == 'freiburg_test':
         translate_datasets = FreiburgTest('datasets/freiburg', split='test', domain='RGB', transforms=source_translate_transform,
                                       with_label=False)
     else:
@@ -38,7 +41,7 @@ def translate(args):
 
     net_g_s2t = generators.unet_256(ngf=64, input_nc=args.input_nc, output_nc=args.output_nc).to(device)
     load_checkpoint = torch.load(os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
-    net_g_s2t.load_state_dict(load_checkpoint['net_g_s2t_state_dict'])
+    net_g_s2t.load_state_dict(load_checkpoint['net_g_{}_state_dict'.format(args.generator_type)])
     net_g_s2t.eval()
     print('start translating.')
     if args.dataset == 'freiburg_test':
