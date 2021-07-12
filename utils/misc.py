@@ -245,8 +245,11 @@ def freiburg_txt(root, split, domain, time='day'):
         for dirpath, dirnames, filenames in os.walk(im_dir):
             for filename in filenames:
                 data_path = os.path.join(dirpath, filename)
+                # for thermal images, replace with 0_rgb.npy. for rgb thermal image, replace with _rgb.npy
+                # label_path = data_path.replace("Images"+domain, "SegmentationClass").replace('_'+domain.lower()+'.png',
+                #                                                                              '0_rgb.npy')
                 label_path = data_path.replace("Images"+domain, "SegmentationClass").replace('_'+domain.lower()+'.png',
-                                                                                             '0_rgb.npy')
+                                                                                             '_rgb.npy')
                 list_file.write(data_path+'\n')
                 label_file.write(label_path+'\n')
     if split == 'train':
