@@ -5,6 +5,8 @@ from PIL import Image, ImageOps
 import torch
 import numpy as np
 from torch.utils import data
+from torchvision import transforms as T
+import glob
 
 
 def parse_file(file_name):
@@ -106,8 +108,9 @@ class Freiburg(data.Dataset):
 
 class FreiburgTest(Freiburg):
 
-    def __init__(self, root, split, domain, transforms, with_label, grayscale=False):
+    def __init__(self, root, split, domain, transforms, with_label, grayscale=False, transform_label=True):
         super(FreiburgTest, self).__init__(root, split, domain, transforms, with_label, grayscale)
+        self.transform_label = transform_label
 
     def __getitem__(self, item):
 
@@ -142,9 +145,50 @@ class FreiburgTest(Freiburg):
             label = np.load(os.path.join(label_name))
             label = Image.fromarray(label).resize((960, 320), Image.NEAREST)
             label = Image.fromarray(np.array(label)[:, 150:850])
-            image, label = self.transforms(image, label)
-            return image, np.array(label, dtype=np.int64)
+            if self.transform_label:
+                image, label = self.transforms(image, label)
+                label = np.array(label, dtype=np.int64)
+            else:
+                image = self.transforms(image)
+                label = T.ToTensor()(label)
+            return image, label
+
         else:
             image = self.transforms(image)
             return image
 
+
+class FreiburgT2S(data.Dataset):
+    def __init__(self, folder, transforms, root='datasets/freiburg/t2s/'):
+        self.translation_files = glob.glob(root + folder + '*_translation.jpg', recursive=True)
+        self.transforms = transforms
+
+    def __len__(self):
+        return len(self.translation_files)
+
+    def __getitem__(self, item):
+        image_name = self.translation_files[item]
+        label_name = image_name.replace('translation.jpg', 'groundtruth.png')
+        image = Image.open(os.path.join(image_name)).convert('RGB')
+        label = Image.open(os.path.join(label_name))
+        image, label = self.transforms(image, label)
+        return image, np.array(label, dtype=np.int64)
+
+
+class FreiburgTranslation(data.Dataset):
+    def __init__(self, folder, transforms, root='datasets/freiburg/translations'):
+        print(folder)
+        self.translation_files = glob.glob(root + folder + '*_translation.jpg', recursive=True)
+        self.transforms = transforms
+
+    def __len__(self):
+        print(len(self.translation_files))
+        return len(self.translation_files)
+
+    def __getitem__(self, item):
+        image_name = self.translation_files[item]
+        label_name = image_name.replace('_translation.jpg', '_groundtruth.png')
+        image = Image.open(os.path.join(image_name))
+        label = Image.open(os.path.join(label_name))
+        image, label = self.transforms(image, label)
+        return image, np.array(label, dtype=np.int64)
