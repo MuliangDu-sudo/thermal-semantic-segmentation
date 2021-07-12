@@ -5,24 +5,26 @@ from data import Cityscapes, Freiburg, FreiburgTest
 from torch.utils.data import DataLoader
 import os
 from torchvision import transforms as T
+from utils import transforms as TT
 from train import Denormalize
 from options import translation_parse
 from tqdm import tqdm
-
+from PIL import Image
 
 def translate(args):
 
     source_translate_transform = T.Compose([
-        T.Resize(size=(256, 512)),
+        T.Resize((256, 512)),
         T.ToTensor(),
         T.Normalize(args.normalize, args.normalize)
     ])
 
     source_reverse_transform = T.Compose([
         Denormalize(args.denormalize, args.denormalize),
-        T.Resize(size=args.save_image_size),
+        T.Resize(args.save_image_size),
         T.ToPILImage()
     ])
+
     if args.dataset == 'Cityscapes':
         translate_datasets = Cityscapes('datasets/source_dataset', transforms=source_translate_transform, train_mode=False)
     elif args.dataset == 'freiburg_rgb':
@@ -33,26 +35,46 @@ def translate(args):
                                       with_label=False, translation_mode=True, translation_name=args.checkpoint_name.replace('.pth', '')+'_2rgb')
     elif args.dataset == 'freiburg_test':
         translate_datasets = FreiburgTest('datasets/freiburg', split='test', domain='RGB', transforms=source_translate_transform,
-                                      with_label=False)
+                                      with_label=True, transform_label=False, grayscale=args.grayscale)
+    elif args.dataset == 'freiburg_test_t2s':
+        translate_datasets = FreiburgTest('datasets/freiburg', split='test', domain='IR', transforms=source_translate_transform,
+                                      with_label=True, transform_label=False)
     else:
         raise ValueError('dataset does not exist.')
     translate_dataloader = DataLoader(translate_datasets, batch_size=args.batch_size,
                                       shuffle=False, num_workers=2, pin_memory=True, drop_last=True)
 
-    net_g_s2t = generators.unet_256(ngf=64, input_nc=args.input_nc, output_nc=args.output_nc).to(device)
+    net_g = generators.unet_256(ngf=64, input_nc=args.input_nc, output_nc=args.output_nc).to(device)
     load_checkpoint = torch.load(os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
-    net_g_s2t.load_state_dict(load_checkpoint['net_g_{}_state_dict'.format(args.generator_type)])
-    net_g_s2t.eval()
+    net_g.load_state_dict(load_checkpoint['net_g_{}_state_dict'.format(args.generator_type)])
+    net_g.eval()
     print('start translating.')
     if args.dataset == 'freiburg_test':
-        save_root_path = 'datasets/freiburg/test_' + args.checkpoint_name.replace('.pth', '')
-        for i, images in enumerate(translate_dataloader):
+        save_root_path = 'datasets/freiburg/translations/test_' + args.checkpoint_name.replace('.pth', '')
+        for i, [images, labels] in enumerate(translate_dataloader):
             images = images.to(device)
-            translations = net_g_s2t(images).squeeze(dim=0)
+            translations = net_g(images).squeeze(dim=0)
             translations = source_reverse_transform(translations)
+            labels = T.ToPILImage()(labels.squeeze_(1))
             if not os.path.exists(save_root_path):
                 os.makedirs(save_root_path)
-            translations.save(os.path.join(save_root_path, str(i) + '.png'))
+            translations.save(os.path.join(save_root_path, str(i) + '_translation.jpg'))
+            labels.save(os.path.join(save_root_path, str(i) + '_groundtruth.png'))
+
+            if i % 100 == 0:
+                print('translation: [{}/{}]'.format(i, len(translate_dataloader)))
+
+    elif args.dataset == 'freiburg_test_t2s':
+        save_root_path = 'datasets/freiburg/translations/t2s/test_' + args.checkpoint_name.replace('.pth', '')
+        for i, [images, labels] in enumerate(translate_dataloader):
+            images = images.to(device)
+            translations = net_g(images).squeeze(dim=0)
+            translations = source_reverse_transform(translations)
+            labels = T.ToPILImage()(labels.squeeze_(1))
+            if not os.path.exists(save_root_path):
+                os.makedirs(save_root_path)
+            translations.save(os.path.join(save_root_path, str(i) + '_translation.jpg'))
+            labels.save(os.path.join(save_root_path, str(i) + '_groundtruth.png'))
 
             if i % 100 == 0:
                 print('translation: [{}/{}]'.format(i, len(translate_dataloader)))
@@ -60,7 +82,7 @@ def translate(args):
         for i, [images, image_names] in enumerate(translate_dataloader):
             images = images.to(device)
             image_name = image_names[0]
-            translations = net_g_s2t(images).squeeze(dim=0)
+            translations = net_g(images).squeeze(dim=0)
             translations = source_reverse_transform(translations)
             path_split = image_name.split("/")[:-1]     # to extract the path to save translation image
             image_save_path = "/".join(path_split)
