@@ -1,4 +1,4 @@
-from models import thermal_semantic_segmentation_models
+from models import thermal_semantic_segmentation_models, semantic_segmentation_models
 import torch
 from utils import transforms as T
 from torchvision import transforms as TT
@@ -6,7 +6,7 @@ import os
 from PIL import ImageFile
 from utils import AverageMeter, freiburg_prediction_visualize, freiburg_palette
 import time
-from data import CityscapesTranslation, Cityscapes, FreiburgTest, Freiburg
+from data import CityscapesTranslation, Cityscapes, FreiburgTest, Freiburg, FreiburgT2S, FreiburgTranslation
 from torch.utils.data import DataLoader
 import visdom
 from torch.utils.data.sampler import SubsetRandomSampler
@@ -72,8 +72,9 @@ def seg_evaluation(args):
     visualizer = visdom.Visdom(env='thermal semantic segmentation')
 
     train_transform = T.Compose([
-        T.RandomResizedCrop(size=(256, 512), ratio=(1.5, 8 / 3.), scale=(0.5, 1.)),
-        T.RandomHorizontalFlip(),
+        #T.RandomResizedCrop(size=(256, 512), ratio=(1.5, 8 / 3.), scale=(0.5, 1.)),
+        T.Resize((512, 256)),
+        # T.RandomHorizontalFlip(),
         T.ToTensor(),
         # T.Normalize((0.5,), (0.5,))
     ])
@@ -88,11 +89,17 @@ def seg_evaluation(args):
         source_dataset = Cityscapes('datasets/source_dataset', transforms=train_transform)
 
     elif args.dataset == 'freiburg_translation':
-        source_dataset = FreiburgTest('datasets/freiburg', split='test', domain='IR', transforms=train_transform,
-                                      with_label=True)
+        source_dataset = FreiburgTranslation(root='datasets/freiburg/translations/',
+                                             folder='test_'+args.checkpoint_name.replace('_segmentation.pth', '')+'/',
+                                             transforms=train_transform)
     elif args.dataset == 'freiburg_rgb':
         source_dataset = FreiburgTest('datasets/freiburg', split='test', domain='RGB', transforms=train_transform,
                                       with_label=True)
+    elif args.dataset == 'freiburg_ir':
+        source_dataset = FreiburgTest('datasets/freiburg', split='test', domain='IR', transforms=train_transform,
+                                  with_label=True)
+    elif args.dataset == 'freiburg_t2s':
+        source_dataset = FreiburgT2S(folder=args.t2s_folder, transforms=train_transform)
     else:
         raise ValueError('dataset does not exist.')
     # Creating data indices for training and validation splits:
@@ -114,9 +121,14 @@ def seg_evaluation(args):
         val_dataloader = DataLoader(source_dataset, batch_size=args.val_batch_size, shuffle=False, num_workers=2,
                                     pin_memory=True,
                                     drop_last=True)
-
-    net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(num_classes=args.num_classes,
-                                                                           pretrained_backbone=False).to(device)
+    if args.net_mode == 'one_channel':
+        net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(num_classes=args.num_classes,
+                                                                               pretrained_backbone=False).to(device)
+    elif args.net_mode == 'three_channels':
+        net = semantic_segmentation_models.deeplabv2_resnet101(num_classes=args.num_classes,
+                                                                               pretrained_backbone=False).to(device)
+    else:
+        raise ValueError('net_mode not exist.')
     load_checkpoint = torch.load(os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
     net.load_state_dict(load_checkpoint['sem_net_state_dict'])
 
