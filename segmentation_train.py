@@ -105,7 +105,7 @@ def seg_main(args):
         source_dataset = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=train_transform,
                                   with_label=True)
     elif args.dataset == 'freiburg_translation':
-        source_dataset = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=train_transform,
+        source_dataset = Freiburg('datasets/freiburg', split='train', domain='IR', transforms=train_transform,
                                   with_label=True, segmentation_mode=True, translation_name=args.translation_name)
     else:
         raise ValueError('dataset does not exist.')
@@ -140,12 +140,13 @@ def seg_main(args):
     if args.load_model:
         load_checkpoint = torch.load(os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
         restart_epoch = load_checkpoint['epoch'] + 1
-        print('loading trained model. start from epoch {}.'.format(restart_epoch))
+        # if 'val_loss' in load_checkpoint:
+        #     lowest_val_loss = load_checkpoint['val_loss']
+        print('loading trained model. start from epoch {}. Last validation loss is {}'.format(restart_epoch, lowest_val_loss))
         net.load_state_dict(load_checkpoint['sem_net_state_dict'])
         # if 'best_score' in load_checkpoint:
         #     best_score = load_checkpoint['best_score']
-        if 'lowest_val_loss' in load_checkpoint:
-            lowest_val_loss = load_checkpoint['lowest_val_loss']
+
 
     optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', verbose=True)
@@ -165,7 +166,6 @@ def seg_main(args):
 
         if val_loss < lowest_val_loss:
             print('val loss reduced from {} to {}! Saving...'.format(lowest_val_loss, val_loss))
-            print('mean iou score: '+str(mean_iu))
             lowest_val_loss = val_loss
             torch.save({
                 'epoch': epoch,
@@ -174,6 +174,7 @@ def seg_main(args):
             }, os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
         else:
             print('Model not improved.')
+        print('mean iou score: ' + str(mean_iu))
 
 
 if __name__ == '__main__':

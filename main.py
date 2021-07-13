@@ -111,8 +111,10 @@ def main(args):
     identity_loss_func = torch.nn.L1Loss()
     contour_loss_func = torch.nn.L1Loss()
     sem_loss_func = loss.SemanticConsistency().to(device)
-    loss_dict = {'g_s2t': [], 'g_t2s': [], 'd_s': [], 'd_t': [], 'cycle_s': [], 'cycle_t': [], 'con_s2t': [], 'con_t2s': []}
-    # loss_dict = {'g_s2t': [], 'g_t2s': [], 'd_s': [], 'd_t': [], 'cycle_s': [], 'cycle_t': []}
+    loss_dict = {'g_s2t': [], 'g_t2s': [], 'd_s': [], 'd_t': [], 'cycle_s': [], 'cycle_t': []}
+    if args.with_contour:
+        loss_dict['con_s2t'] = []
+        loss_dict['con_t2s'] = []
     epoch_counter_ratio = []
     print("--------START TRAINING--------")
     for epoch in range(restart_epoch, restart_epoch+args.num_epoch):

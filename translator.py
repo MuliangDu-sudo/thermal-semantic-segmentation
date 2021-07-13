@@ -29,7 +29,8 @@ def translate(args):
         translate_datasets = Cityscapes('datasets/source_dataset', transforms=source_translate_transform, train_mode=False)
     elif args.dataset == 'freiburg_rgb':
         translate_datasets = Freiburg('datasets/freiburg', split='train', domain='RGB', grayscale=False, transforms=source_translate_transform,
-                                      with_label=False, translation_mode=True, translation_name=args.checkpoint_name.replace('.pth', ''))
+                                      with_label=False, translation_mode=True,
+                                      translation_name=args.checkpoint_name.replace('.pth', '')+'_'+args.translation_name_suffix)
     elif args.dataset == 'freiburg_ir':
         translate_datasets = Freiburg('datasets/freiburg', split='train', domain='IR', grayscale=False, transforms=source_translate_transform,
                                       with_label=False, translation_mode=True, translation_name=args.checkpoint_name.replace('.pth', '')+'_2rgb')
