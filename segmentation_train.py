@@ -103,7 +103,7 @@ def seg_main(args):
                                   with_label=True)
     elif args.dataset == 'freiburg_rgb':
         source_dataset = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=train_transform,
-                                  with_label=True)
+                                  grayscale=args.grayscale, with_label=True)
     elif args.dataset == 'freiburg_translation':
         source_dataset = Freiburg('datasets/freiburg', split='train', domain='IR', transforms=train_transform,
                                   with_label=True, segmentation_mode=True, translation_name=args.translation_name)
@@ -171,7 +171,7 @@ def seg_main(args):
                 'epoch': epoch,
                 'sem_net_state_dict': net.state_dict(),
                 'val_loss': lowest_val_loss,
-            }, os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
+            }, os.path.join(MODEL_ROOT_PATH, args.new_checkpoint_name))
         else:
             print('Model not improved.')
         print('mean iou score: ' + str(mean_iu))
