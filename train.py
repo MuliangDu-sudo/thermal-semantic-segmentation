@@ -136,9 +136,9 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, canny, sem_net_s, sem_ne
 
     i = 0
     for s, t in zip(s_data, t_data):
-        real_s = s[0].to(device)
+        real_s = s.to(device)
         real_t = t[0].float().to(device)
-        label_s = s[1].float().to(device)
+        #label_s = s[1].float().to(device)
 
         # data_time.update(time.time() - end)
 

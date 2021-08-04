@@ -2,7 +2,7 @@ import torch
 from utils import loss, ImagePool, set_requires_grad
 from utils import transforms as TT
 from utils import triple_transforms as TTT
-from data import Cityscapes, TrainTDataset, Freiburg
+from data import Cityscapes, TrainTDataset, Freiburg, Kitti
 from torch.utils.data import DataLoader
 from models import discriminators, generators, semantic_segmentation_models, thermal_semantic_segmentation_models, Canny
 from itertools import chain
@@ -29,12 +29,12 @@ def main(args):
         T.Normalize((0.5,), (0.5,))
     ])
 
-    double_transform = TT.Compose([
-        TT.RandomResizedCrop(size=(256, 512), ratio=(1.5, 8 / 3.), scale=(0.5, 1.)),
+    double_transform = T.Compose([
+        T.RandomResizedCrop(size=(256, 512), ratio=(1.5, 8 / 3.), scale=(0.5, 1.)),
         # it return an image of size 256x512
-        TT.RandomHorizontalFlip(),
-        TT.ToTensor(),
-        TT.Normalize(args.normalize, args.normalize)
+        T.RandomHorizontalFlip(),
+        T.ToTensor(),
+        T.Normalize(args.normalize, args.normalize)
     ])
 
     # triple transform only used for items with contour original image
@@ -54,6 +54,8 @@ def main(args):
     elif args.source_dataset == 'freiburg_rgb':
         source_dataset = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=source_train_transform,
                                   with_label=True, grayscale=args.grayscale)
+    elif args.source_dataset == 'kitti':
+        source_dataset = Kitti('datasets/kitti', transforms=source_train_transform)
     else:
         raise ValueError('source dataset does not exist.')
 

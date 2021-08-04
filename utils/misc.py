@@ -271,6 +271,27 @@ def freiburg_txt(root, split, domain, time='day'):
     label_file.close()
 
 
+def kitti_txt(root):
+    """
+
+    :param root: str, root directory
+    :param domain: str, IR or RGB
+    :param time: str, day, night or * for both.
+    :return: txt file of files paths
+    """
+
+    image_list_path = os.path.join(root, 'image_list')
+    if not os.path.exists(image_list_path):
+        os.makedirs(image_list_path)
+    list_file = open(r"{}/image_list/kitti_data.txt".format(root), "w+")
+
+    files = glob.glob(root + '/2011_09_*/2011_09_*/image_02/data/*.png', recursive=True)
+    print(len(files))
+    for file in files:
+        list_file.write(file+'\n')
+
+    list_file.close()
+
 
 
 def plot_loss(epoch_counter_ratio, losses, vis):
