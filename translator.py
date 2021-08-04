@@ -113,7 +113,15 @@ def convert_freiburg(args):
                                   with_label=False, translation_mode=True,
                                   translation_name='convert')
 
+    rgb_datasets = Freiburg('datasets/freiburg', split='train', domain='RGB', grayscale=False,
+                                  transforms=source_translate_transform,
+                                  with_label=False, translation_mode=True,
+                                  translation_name='convert')
+
     dataloader = DataLoader(datasets, batch_size=args.batch_size,
+                                      shuffle=False, num_workers=2, pin_memory=True, drop_last=True)
+
+    rgb_dataloader = DataLoader(rgb_datasets, batch_size=args.batch_size,
                                       shuffle=False, num_workers=2, pin_memory=True, drop_last=True)
 
     for i, [images, image_names] in enumerate(dataloader):
