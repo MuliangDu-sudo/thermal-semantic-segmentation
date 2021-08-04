@@ -159,7 +159,7 @@ class FreiburgTest(Freiburg):
 
 
 class FreiburgT2S(data.Dataset):
-    def __init__(self, folder, transforms, root='datasets/freiburg/t2s/'):
+    def __init__(self, folder, transforms, root='datasets/freiburg/translations/t2s/'):
         self.translation_files = glob.glob(root + folder + '*_translation.jpg', recursive=True)
         self.transforms = transforms
 
@@ -169,7 +169,7 @@ class FreiburgT2S(data.Dataset):
     def __getitem__(self, item):
         image_name = self.translation_files[item]
         label_name = image_name.replace('translation.jpg', 'groundtruth.png')
-        image = Image.open(os.path.join(image_name)).convert('RGB')
+        image = Image.open(os.path.join(image_name))
         label = Image.open(os.path.join(label_name))
         image, label = self.transforms(image, label)
         return image, np.array(label, dtype=np.int64)
