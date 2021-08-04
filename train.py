@@ -176,12 +176,16 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, canny, sem_net_s, sem_ne
             # contour_fake_s = canny['rgb'](gray_fake_s).detach()
 
             # below is for gray2ir
-            contour_s_ori = s[0].to(device)
+            if args.grayscale:
+                contour_s_ori = s[0].to(device)
+                gray_fake_s = fake_s
+            else:
+                contour_s_ori = T.Grayscale()(s[0]).to(device)
+                gray_fake_s = T.Grayscale()(fake_s)
             contour_t_ori = t[0].to(device)
             contour_real_s = canny['rgb'](contour_s_ori).detach()
             contour_real_t = canny['thermal'](contour_t_ori).detach()
             contour_fake_t = canny['thermal'](fake_t).detach()
-            gray_fake_s = fake_s
             contour_fake_s = canny['rgb'](gray_fake_s).detach()
 
             loss_contour_s2t = contour_loss_func(contour_real_s, contour_fake_t)
@@ -234,11 +238,11 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, canny, sem_net_s, sem_ne
 
         if i % 10 == 0:
             progress.display(i)
-            #vis.images(real_s, win='real_s', padding=2, opts=dict(title='real_s', caption='real_s'))
-            #vis.images(fake_t, win='fake_t', padding=2, opts=dict(title='fake_t', caption='fake_t'))
+            vis.images(real_s, win='real_s', padding=2, opts=dict(title='real_s', caption='real_s'))
+            vis.images(fake_t, win='fake_t', padding=2, opts=dict(title='fake_t', caption='fake_t'))
             #vis.images(rec_s, win='rec_s', padding=2, opts=dict(title='rec_s', caption='rec_s'))
-            #vis.images(real_t, win='real_t', padding=2, opts=dict(title='real_t', caption='real_t'))
-            #vis.images(fake_s, win='fake_s', padding=2, opts=dict(title='fake_s', caption='fake_s'))
+            vis.images(real_t, win='real_t', padding=2, opts=dict(title='real_t', caption='real_t'))
+            vis.images(fake_s, win='fake_s', padding=2, opts=dict(title='fake_s', caption='fake_s'))
             #vis.images(rec_t, win='rec_t', padding=2, opts=dict(title='rec_t', caption='rec_t'))
 
             loss_dict['g_s2t'].append(loss_g_s2t.item())
