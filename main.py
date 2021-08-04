@@ -131,7 +131,7 @@ def main(args):
             'net_d_t_state_dict': net_d_t.state_dict(),
             'net_seg_s_state_dict': net_seg_s.state_dict(),
             'net_seg_t_state_dict': net_seg_t.state_dict()
-        }, os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
+        }, os.path.join(MODEL_ROOT_PATH, args.new_checkpoint_name))
 
 
 if __name__ == '__main__':
