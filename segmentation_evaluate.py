@@ -12,7 +12,7 @@ import visdom
 from torch.utils.data.sampler import SubsetRandomSampler
 import numpy as np
 from utils.eval_tools import evaluate
-from options import seg_parse
+from options import evaluation_parse
 from PIL import ImageFile, Image
 from tqdm import tqdm
 
@@ -32,6 +32,9 @@ def seg_validate(args, sem_net, val_data, loss_func, device, vis):
     for i, item in enumerate(tqdm(val_data)):
         image = item[0].to(device)
         label = item[1].to(device)
+        if all([args.baseline, args.target_domain == 'Grayscale', args.source_domain == 'RGB']) \
+                or all([args.baseline, args.target_domain == 'Thermal', args.source_domain == 'RGB']):
+            image = image.expand(-1, 3, -1, -1)
         outputs = sem_net(image)
         outputs = torch.nn.Upsample(size=(256, 512), mode='bilinear', align_corners=True)(outputs)
         loss = loss_func(outputs, label)
@@ -49,12 +52,16 @@ def seg_validate(args, sem_net, val_data, loss_func, device, vis):
         #                opts=dict(title='prediction [{}]'.format(i), caption='prediction [{}]'.format(i)))
         # i += 1
         if args.visualize_prediction:
+            save_path_root = 'predictions/{}'.format(args.checkpoint_name.replace('.pth', ''))
+            if args.baseline:
+                save_path_root = 'baseline_predictions/apply_{}_image_on_{}_domain_model'.format(args.target_domain, args.source_domain,)
+            if args.generator_type == 't2s':
+                save_path_root = 'predictions/t2s/{}'.format(args.checkpoint_name.replace('.pth', ''))
+            if not os.path.exists(save_path_root):
+                os.makedirs(save_path_root)
             if i % 1 == 0:
                 new_mask = freiburg_prediction_visualize(predictions[0], freiburg_palette())
                 label = freiburg_prediction_visualize(label[0].squeeze_(1).cpu().numpy(), freiburg_palette())
-                save_path_root = 'predictions/{}'.format(args.checkpoint_name.replace('.pth', ''))
-                if not os.path.exists(save_path_root):
-                    os.makedirs(save_path_root)
                 image = TT.ToPILImage()(image[0])
                 new_mask.save(os.path.join(save_path_root, str(i)+'_prediction.png'))
                 image.save(os.path.join(save_path_root, str(i)+'_image.png'))
@@ -94,7 +101,7 @@ def seg_evaluation(args):
                                              transforms=train_transform)
     elif args.dataset == 'freiburg_rgb':
         source_dataset = FreiburgTest('datasets/freiburg', split='test', domain='RGB', transforms=train_transform,
-                                      with_label=True)
+                                      with_label=True, grayscale=args.grayscale)
     elif args.dataset == 'freiburg_ir':
         source_dataset = FreiburgTest('datasets/freiburg', split='test', domain='IR', transforms=train_transform,
                                   with_label=True)
@@ -135,9 +142,10 @@ def seg_evaluation(args):
     loss_function = torch.nn.CrossEntropyLoss(ignore_index=13, reduction='mean')
 
     mean_iu, avg_loss = seg_validate(args, net, val_dataloader, loss_function, device, visualizer)
+    print('checkpoint name: '+args.checkpoint_name)
     print('mean iou score: [{}]. val_loss: [{}]'.format(mean_iu, avg_loss))
 
 
 if __name__ == '__main__':
-    args_ = seg_parse().parse_args()
+    args_ = evaluation_parse().parse_args()
     seg_evaluation(args_)
