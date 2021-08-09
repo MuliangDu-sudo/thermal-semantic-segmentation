@@ -75,7 +75,7 @@ def seg_validate(args, sem_net, val_data, loss_func, device, vis):
 
 def seg_evaluation(args):
     print('evaluating...')
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda")
     visualizer = visdom.Visdom(env='thermal semantic segmentation')
 
     train_transform = T.Compose([
