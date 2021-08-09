@@ -138,16 +138,20 @@ class ResNet(nn.Module):
 
 
 class Deeplab(nn.Module):
-    def __init__(self, backbone, classifier, num_classes):
+    def __init__(self, backbone, classifier, num_classes, with_feat=False):
         super(Deeplab, self).__init__()
         self.backbone = backbone
         self.classifier = classifier
         self.num_classes = num_classes
+        self.with_feat = with_feat
 
     def forward(self, x):
         x = self.backbone(x)
         y = self.classifier(x)
-        return y
+        if self.with_feat:
+            return y, x
+        else:
+            return y
 
     def get_1x_lr_params_NOscale(self):
         """
@@ -179,7 +183,7 @@ class Deeplab(nn.Module):
         ]
 
 
-def deeplabv2_resnet101_thermal(num_classes=19, pretrained_backbone=True):
+def deeplabv2_resnet101_thermal(num_classes=19, pretrained_backbone=True, with_feat=False):
     """Constructs a DeepLabV2 model with a ResNet-101 backbone.
 
      Args:
@@ -197,4 +201,4 @@ def deeplabv2_resnet101_thermal(num_classes=19, pretrained_backbone=True):
                 new_params['.'.join(i_parts[1:])] = saved_state_dict[i]
         backbone.load_state_dict(new_params)
     classifier = ASPP_V2(2048, [6, 12, 18, 24], [6, 12, 18, 24], num_classes)
-    return Deeplab(backbone, classifier, num_classes)
+    return Deeplab(backbone, classifier, num_classes, with_feat)
