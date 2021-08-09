@@ -96,7 +96,7 @@ class Freiburg(data.Dataset):
             image, label = self.transforms(image, label)
             return_item = image, np.array(label, dtype=np.int64)
         else:
-            return_item = self.transforms(image), 0
+            return_item = self.transforms(image)
 
         if self.translation_mode:
             image = self.transforms(image)
