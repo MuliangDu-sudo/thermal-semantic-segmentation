@@ -23,7 +23,7 @@ if not os.path.exists(MODEL_ROOT_PATH):
     os.makedirs(MODEL_ROOT_PATH)
 
 
-def seg_train(sem_net, data, loss_func, optim, device, vis, epoch, loss_dict):
+def seg_train(args, sem_net, data, loss_func, optim, device, vis, epoch, loss_dict):
 
     train_loss = AverageMeter('train_loss', ':3.4f')
     iteration_length = len(data)
@@ -38,7 +38,10 @@ def seg_train(sem_net, data, loss_func, optim, device, vis, epoch, loss_dict):
         # print('label in main.')
         # print(torch.unique(label))
         optim.zero_grad()
-        prediction = sem_net(image)
+        if args.with_feat:
+            prediction, feature = sem_net(image)
+        else:
+            prediction = sem_net(image)
         prediction = torch.nn.Upsample(size=(256, 512), mode='bilinear', align_corners=True)(prediction)
         loss = loss_func(prediction, label)
         loss.backward()
@@ -105,7 +108,7 @@ def seg_main(args):
         source_dataset = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=train_transform,
                                   grayscale=args.grayscale, with_label=True)
     elif args.dataset == 'freiburg_translation':
-        source_dataset = Freiburg('datasets/freiburg', split='train', domain='IR', transforms=train_transform,
+        source_dataset = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=train_transform,
                                   with_label=True, segmentation_mode=True, translation_name=args.translation_name)
     else:
         raise ValueError('dataset does not exist.')
@@ -128,7 +131,7 @@ def seg_main(args):
                                 drop_last=True, sampler=valid_sampler)
     if args.net_mode == 'one_channel':
         net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(num_classes=args.num_classes,
-                                                                               pretrained_backbone=False).to(device)
+                                                                               pretrained_backbone=False, with_feat=args.with_feat).to(device)
     elif args.net_mode == 'three_channels':
         net = semantic_segmentation_models.deeplabv2_resnet101(num_classes=args.num_classes,
                                                                                pretrained_backbone=False).to(device)
@@ -155,7 +158,7 @@ def seg_main(args):
     loss_dict = {'train_loss': [], 'epoch_counter_ratio': []}
     for epoch in range(restart_epoch, restart_epoch+args.epochs):
         print("--------START TRAINING [EPOCH: {}]--------".format(epoch))
-        seg_train(net, train_dataloader, loss_function, optimizer, device, visualizer, epoch, loss_dict)
+        seg_train(args, net, train_dataloader, loss_function, optimizer, device, visualizer, epoch, loss_dict)
         # torch.save({
         #     'epoch': epoch,
         #     'sem_net_state_dict': net.state_dict(),
