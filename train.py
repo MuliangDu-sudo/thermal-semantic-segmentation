@@ -238,11 +238,11 @@ def train(args, s_data, t_data, g_s2t, g_t2s, d_s, d_t, canny, sem_net_s, sem_ne
 
         if i % 10 == 0:
             progress.display(i)
-            vis.images(real_s, win='real_s', padding=2, opts=dict(title='real_s', caption='real_s'))
-            vis.images(fake_t, win='fake_t', padding=2, opts=dict(title='fake_t', caption='fake_t'))
+            vis.images(real_s[0], win='real_s', padding=2, opts=dict(title='real_s', caption='real_s'))
+            vis.images(fake_t[0], win='fake_t', padding=2, opts=dict(title='fake_t', caption='fake_t'))
             #vis.images(rec_s, win='rec_s', padding=2, opts=dict(title='rec_s', caption='rec_s'))
-            vis.images(real_t, win='real_t', padding=2, opts=dict(title='real_t', caption='real_t'))
-            vis.images(fake_s, win='fake_s', padding=2, opts=dict(title='fake_s', caption='fake_s'))
+            vis.images(real_t[0], win='real_t', padding=2, opts=dict(title='real_t', caption='real_t'))
+            vis.images(fake_s[0], win='fake_s', padding=2, opts=dict(title='fake_s', caption='fake_s'))
             #vis.images(rec_t, win='rec_t', padding=2, opts=dict(title='rec_t', caption='rec_t'))
 
             loss_dict['g_s2t'].append(loss_g_s2t.item())
