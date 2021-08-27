@@ -48,19 +48,19 @@ def seg_parse():
     parser = argparse.ArgumentParser(description='segmentation options')
     parser.add_argument('-load_model', default=False, help='train with pretrained model.')
     parser.add_argument('-epochs', default=50, help='number of epochs to train.')
-    parser.add_argument('-batch_size', type=int, default=1, help='batch size.')
-    parser.add_argument('-val_batch_size', type=int, default=1, help='validation batch size.')
+    parser.add_argument('-batch_size', type=int, default=8, help='batch size.')
+    parser.add_argument('-val_batch_size', type=int, default=8, help='validation batch size.')
     parser.add_argument('-checkpoint_name', type=str, default='pure_freiburg_rgb_13_segmentation.pth',
                         help='the name of trained model.')
-    parser.add_argument('-new_checkpoint_name', type=str, default='freiburg_rgb2ir_cityscapes_segmentation.pth',
+    parser.add_argument('-new_checkpoint_name', type=str, default='256_freiburg_rgb2ir_segmentation.pth',
                         help='the name of trained model. If don\'t want to create new checkpoint, use same name as checkpoint_name.')
     parser.add_argument('-num_samples_show', type=int, default=3, help='number of samples to show in visdom.')
     parser.add_argument('-net_mode', type=str, default='one_channel', help='select input channel number of the net (1 or 3).')
-    parser.add_argument('-dataset', type=str, default='freiburg_ir', help='select the dataset.')
+    parser.add_argument('-dataset', type=str, default='freiburg_translation', help='select the dataset.')
     parser.add_argument('-num_classes', type=int, default=13, help='number of classes.')
     parser.add_argument('-lr', type=float, default=0.0001, help='learning rate')
     parser.add_argument('-data_split', type=bool, default=False, help='whether to split dataset.')
-    parser.add_argument('-translation_name', type=str, default='cityscapes_rgb2freiburg_ir', help='the folder name of translations.')
+    parser.add_argument('-translation_name', type=str, default='freiburg_rgb2ir_130epochs', help='the folder name of translations.')
     parser.add_argument('-visualize_prediction', type=bool, default=True, help='whether to save visualized prediction.')
     parser.add_argument('-ignore_index', type=int, default=12, help='ignore index. cityscapes is 255; freiburg is 12.')
     parser.add_argument('-generator_type', type=str, default='s2t', help='the type of generator.')
@@ -69,7 +69,8 @@ def seg_parse():
                         help='whether this is an evaluation of baseline approach.')
     parser.add_argument('-source_domain', type=str, default='Thermal', help='source domain for baseline evaluation.')
     parser.add_argument('-target_domain', type=str, default='Grayscale', help='target domain for baseline evaluation.')
-    parser.add_argument('-with_feat', type=bool, default='False', help='whether to extract feature')
+    parser.add_argument('-with_feat', type=bool, default=False, help='whether to extract feature')
+    parser.add_argument('-logdir', type=str, default='./logs')
     return parser
 
 
@@ -103,7 +104,7 @@ def calc_proto_parse():
     parser.add_argument('-num_classes', type=int, default=13, help='number of classes.')
     parser.add_argument('-resume_path', type=str, default='prototypes', help='path for saving prototypes.')
     parser.add_argument('-epochs', default=4, help='number of epochs to train.')
-    parser.add_argument('-batch_size', type=int, default=1, help='batch size.')
+    parser.add_argument('-batch_size', type=int, default=64, help='batch size.')
     parser.add_argument('-checkpoint_name', type=str, default='freiburg_rgb2ir_cityscapes_segmentation.pth',
                         help='the name of trained model.')
     parser.add_argument('-with_feat', type=bool, default=True, help='whether to extract feature')

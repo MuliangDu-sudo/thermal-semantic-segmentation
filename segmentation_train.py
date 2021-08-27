@@ -1,11 +1,11 @@
-from models import thermal_semantic_segmentation_models, semantic_segmentation_models
+from models import thermal_semantic_segmentation_models, semantic_segmentation_models, Deeplab
 import torch
 from utils import transforms as T
 import os
 from PIL import ImageFile
-from utils import AverageMeter, set_requires_grad, ProgressMeter, plot_loss
+from utils import AverageMeter, set_requires_grad, ProgressMeter, plot_loss, get_logger
 import time
-from data import CityscapesTranslation, Cityscapes, Freiburg
+from data import CityscapesTranslation, Cityscapes, Freiburg, FreiburgTest
 from torch.utils.data import DataLoader
 import visdom
 from torch.utils.data.sampler import SubsetRandomSampler
@@ -23,7 +23,7 @@ if not os.path.exists(MODEL_ROOT_PATH):
     os.makedirs(MODEL_ROOT_PATH)
 
 
-def seg_train(args, sem_net, data, loss_func, optim, device, vis, epoch, loss_dict):
+def seg_train(args, sem_net, data, loss_func, optim, device, vis, epoch, loss_dict, logger):
 
     train_loss = AverageMeter('train_loss', ':3.4f')
     iteration_length = len(data)
@@ -50,7 +50,7 @@ def seg_train(args, sem_net, data, loss_func, optim, device, vis, epoch, loss_di
         train_loss.update(loss.item(), image.size(0))
 
         if i % 10 == 0:
-            progress.display(i)
+            progress.display(i, logger)
             loss_dict['train_loss'].append(loss.item())
             loss_dict['epoch_counter_ratio'].append(epoch + i / iteration_length)
             vis.line(X=np.array(loss_dict['epoch_counter_ratio']),
@@ -81,7 +81,7 @@ def seg_train(args, sem_net, data, loss_func, optim, device, vis, epoch, loss_di
 #     return mean_iu
 
 
-def seg_main(args):
+def seg_main(args, logger):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     visualizer = visdom.Visdom(env='thermal semantic segmentation')
 
@@ -112,6 +112,13 @@ def seg_main(args):
                                   with_label=True, segmentation_mode=True, translation_name=args.translation_name)
     else:
         raise ValueError('dataset does not exist.')
+
+    target_val_dataset = FreiburgTest('datasets/freiburg', split='test', domain='IR', transforms=train_transform,
+                                  with_label=True)
+
+    logger.info('Dataset has been created. Train with {}, validate with {}.'.format(source_dataset.__class__.__name__ +
+                                                                                    '_'+args.translation_name,
+                                                                                    target_val_dataset.__class__.__name__))
     # Creating data indices for training and validation splits:
     dataset_size = len(source_dataset)
     indices = list(range(dataset_size))
@@ -129,14 +136,18 @@ def seg_main(args):
                                   drop_last=True, sampler=train_sampler)
     val_dataloader = DataLoader(source_dataset, batch_size=args.val_batch_size, shuffle=False, num_workers=2, pin_memory=True,
                                 drop_last=True, sampler=valid_sampler)
+    target_val_dataloader = DataLoader(target_val_dataset, batch_size=args.val_batch_size, shuffle=False, num_workers=2, pin_memory=True,
+                                drop_last=True)
     if args.net_mode == 'one_channel':
         net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(num_classes=args.num_classes,
                                                                                pretrained_backbone=False, with_feat=args.with_feat).to(device)
+        net = Deeplab(torch.nn.BatchNorm2d, num_classes=13, num_channels=1, freeze_bn=False).to('cuda')
     elif args.net_mode == 'three_channels':
         net = semantic_segmentation_models.deeplabv2_resnet101(num_classes=args.num_classes,
                                                                                pretrained_backbone=False).to(device)
     else:
         raise ValueError('net mode does not exist.')
+
     restart_epoch = 0
     best_score = 0
     lowest_val_loss = 1000
@@ -147,9 +158,8 @@ def seg_main(args):
         #     lowest_val_loss = load_checkpoint['val_loss']
         print('loading trained model. start from epoch {}. Last validation loss is {}'.format(restart_epoch, lowest_val_loss))
         net.load_state_dict(load_checkpoint['sem_net_state_dict'])
-        # if 'best_score' in load_checkpoint:
-        #     best_score = load_checkpoint['best_score']
-
+        best_score = load_checkpoint['best_score']
+        logger.info('successfully loaded model {}. Resume from epoch {}. Best score is {}'.format(args.checkpoint_name, restart_epoch, best_score))
 
     optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', verbose=True)
@@ -158,17 +168,18 @@ def seg_main(args):
     loss_dict = {'train_loss': [], 'epoch_counter_ratio': []}
     for epoch in range(restart_epoch, restart_epoch+args.epochs):
         print("--------START TRAINING [EPOCH: {}]--------".format(epoch))
-        seg_train(args, net, train_dataloader, loss_function, optimizer, device, visualizer, epoch, loss_dict)
+        seg_train(args, net, train_dataloader, loss_function, optimizer, device, visualizer, epoch, loss_dict, logger)
         # torch.save({
         #     'epoch': epoch,
         #     'sem_net_state_dict': net.state_dict(),
         #     'best_score': best_score,
         # }, os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
-        mean_iu, val_loss = seg_validate(args, net, val_dataloader, loss_function, device, visualizer)
+        mean_iu, val_loss, class_iou = seg_validate(args, net, val_dataloader, loss_function, device, visualizer)
         scheduler.step(val_loss)
 
         if val_loss < lowest_val_loss:
-            print('val loss reduced from {} to {}! Saving...'.format(lowest_val_loss, val_loss))
+            fmt_str = 'val loss reduced from {} to {}! Saving...'.format(lowest_val_loss, val_loss)
+
             lowest_val_loss = val_loss
             torch.save({
                 'epoch': epoch,
@@ -176,10 +187,25 @@ def seg_main(args):
                 'val_loss': lowest_val_loss,
             }, os.path.join(MODEL_ROOT_PATH, args.new_checkpoint_name))
         else:
-            print('Model not improved.')
+            fmt_str = 'Model not improved.'
+        print(fmt_str)
+        logger.info(fmt_str)
         print('mean iou score: ' + str(mean_iu))
+        logger.info('mean iou score: ' + str(mean_iu))
+        for k, v in class_iou.items():
+            logger.info('train set class {}: {}'.format(k, v))
+
+        mean_iu, val_loss, class_iou = seg_validate(args, net, target_val_dataloader, loss_function, device, visualizer)
+        fmt_str = 'target test dataset mean iou score: ' + str(mean_iu)
+        logger.info(fmt_str)
+        for k, v in class_iou.items():
+            logger.info('target set class {}: {}'.format(k, v))
 
 
 if __name__ == '__main__':
     args_ = seg_parse().parse_args()
-    seg_main(args_)
+    args_.logdir = os.path.join('logs', args_.new_checkpoint_name.replace('.pth', ''))
+    if not os.path.exists(args_.logdir):
+        os.makedirs(args_.logdir)
+    logger_ = get_logger(args_.logdir)
+    seg_main(args_, logger_)

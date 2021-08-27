@@ -8,6 +8,9 @@ import functools
 import numpy as np
 import glob
 from PIL import Image
+import logging
+import datetime
+
 
 class AverageMeter(object):
     r"""Computes and stores the average and current value.
@@ -48,10 +51,12 @@ class ProgressMeter(object):
         self.meters = meters
         self.prefix = prefix
 
-    def display(self, batch):
+    def display(self, batch, logger=None):
         entries = [self.prefix + self.batch_fmtstr.format(batch)]
         entries += [str(meter) for meter in self.meters]
         print('\t'.join(entries))
+        if logger is not None:
+            logger.info(entries)
 
     def _get_batch_fmtstr(self, num_batches):
         num_digits = len(str(num_batches // 1))
@@ -345,6 +350,18 @@ def freiburg_prediction_visualize(predictions, palette):
     new_predictions.putpalette(palette)
     return new_predictions
 
+
+def get_logger(logdir):
+    logger = logging.getLogger('ptsemseg')
+    ts = str(datetime.datetime.now()).split('.')[0].replace(" ", "_")
+    ts = ts.replace(":", "_").replace("-","_")
+    file_path = os.path.join(logdir, 'run_{}.log'.format(ts))
+    hdlr = logging.FileHandler(file_path)
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    hdlr.setFormatter(formatter)
+    logger.addHandler(hdlr)
+    logger.setLevel(logging.INFO)
+    return logger
 
 if __name__=="__main__":
     freiburg_txt('../datasets/freiburg', 'test', 'IR')

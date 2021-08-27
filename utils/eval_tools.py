@@ -21,4 +21,5 @@ def evaluate(predictions, gts, num_classes):
     mean_iu = np.nanmean(iu)
     freq = hist.sum(axis=1) / hist.sum()
     fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
-    return acc, acc_cls, mean_iu, fwavacc
+    cls_iu = dict(zip(range(num_classes), iu))
+    return acc, acc_cls, mean_iu, fwavacc, cls_iu

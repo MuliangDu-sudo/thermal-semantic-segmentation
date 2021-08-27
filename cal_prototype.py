@@ -91,12 +91,12 @@ def calc_prototype(args):
                 #vectors, ids = class_features.calculate_mean_vector_by_output(feat_cls, output, model)
                 for t in range(len(ids)):
                     class_features.update_objective_SingleVector(ids[t], vectors[t].detach().cpu(), 'mean')
-            if i % 100 == 0:
+            if i % 10 == 0:
                 print('epoch [{}], prototype calculation process: [{}/{}]'.format(epoch, i, len(train_target_loader)))
 
-    save_path = os.path.join(os.path.dirname(args.resume_path), "prototypes_on_{}_from_{}".format(args.target_dataset, args.checkpoint_name))
-    print('saving prototypes......')
-    torch.save(class_features.objective_vectors, save_path)
+        save_path = os.path.join(os.path.dirname(args.resume_path), "prototypes_on_{}_from_{}".format(args.target_dataset, args.checkpoint_name))
+        print('saving prototypes......')
+        torch.save(class_features.objective_vectors, save_path)
 
 
 class Class_Features:
