@@ -109,3 +109,7 @@ def calc_proto_parse():
                         help='the name of trained model.')
     parser.add_argument('-with_feat', type=bool, default=True, help='whether to extract feature')
     return parser
+
+def pseudo_generation_parse():
+    parser = argparse.ArgumentParser(description='pseudo label generation options.')
+    return parser

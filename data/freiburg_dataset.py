@@ -59,6 +59,11 @@ class Freiburg(data.Dataset):
 
         image_name = self.data_list[item]
         label_name = self.label_list[item]
+        only_img_name = image_name.split('/')[-1]
+
+        input_dict = {}
+        input_dict['img_path'] = only_img_name
+
         if self.domain == 'IR' and not self.segmentation_mode:
             image = np.array(Image.open(os.path.join(image_name)).resize((960, 320), Image.BICUBIC),  dtype=np.float32)
             image = image[:, 150:850]
@@ -94,16 +99,18 @@ class Freiburg(data.Dataset):
             label = label[:, 150:850]
             label = Image.fromarray(label, mode='L')
             image, label = self.transforms(image, label)
-            return_item = image, np.array(label, dtype=np.int64)
+            # return_item = image, np.array(label, dtype=np.int64)
+            input_dict['img'] = image
+            input_dict['label'] = np.array(label, dtype=np.int64)
         else:
-            return_item = self.transforms(image)
+            input_dict['img'] = self.transforms(image)
 
         if self.translation_mode:
-            image = self.transforms(image)
-            translation_name = image_name.replace(str(self.split), self.translation_name)
-            return_item = image, translation_name
+            input_dict['img'] = self.transforms(image)
+            input_dict['img_path'] = image_name.replace(str(self.split), self.translation_name)
+            #return_item = image, translation_name
 
-        return return_item
+        return input_dict
 
 
 class FreiburgTest(Freiburg):

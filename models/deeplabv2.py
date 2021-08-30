@@ -211,8 +211,7 @@ class Classifier_Module2(nn.Module):
             return out
 
 class ResNet101(nn.Module):
-    def __init__(self, block, layers, num_classes, BatchNorm, bn_clr=False, num_channels=3):
-        print('im here 2 ***************************************************************')
+    def __init__(self, block, layers, num_classes, BatchNorm, bn_clr=False, num_channels=3, get_feat=False):
         self.inplanes = 64
         self.bn_clr = bn_clr
         self.num_channels = num_channels
@@ -230,8 +229,11 @@ class ResNet101(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=1, dilation=4, BatchNorm=BatchNorm)
         #self.layer5 = self._make_pred_layer(Classifier_Module, 2048, [6, 12, 18, 24], [6, 12, 18, 24], num_classes)
         self.layer5 = self._make_pred_layer(Classifier_Module2, 2048, [6, 12, 18, 24], [6, 12, 18, 24], num_classes)
-        if self.bn_clr:
-            self.bn_pretrain = BatchNorm(2048, affine=affine_par)
+        # print(self.bn_clr)
+        # if self.bn_clr:
+        #     print('im here')
+        #     self.bn_pretrain = BatchNorm(2048, affine=affine_par)
+        self.get_feat = get_feat
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -276,19 +278,19 @@ class ResNet101(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
-        if self.bn_clr:
-            x = self.bn_pretrain(x)
+        # if self.bn_clr:
+        #     x = self.bn_pretrain(x)
 
-        out = self.layer5(x, get_feat=False)
-        # out = dict()
-        # out['feat'] = x
-        # x = self.layer5(x)
+        #out = self.layer5(x, self.get_feat)
+        out = dict()
+        out['feat'] = x
+        x = self.layer5(x)
         
         # if not ssl:
         #     x = nn.functional.upsample(x, (h, w), mode='bilinear', align_corners=True)
         #     if lbl is not None:
         #         self.loss = self.CrossEntropy2d(x, lbl)    
-        # out['out'] = x
+        out['out'] = x
         return out
 
     def get_1x_lr_params(self):
@@ -358,8 +360,8 @@ def freeze_bn_func(m):
         m.weight.requires_grad = False
         m.bias.requires_grad = False
 
-def Deeplab(BatchNorm, num_classes=21, num_channels=3, freeze_bn=False, restore_from=None, initialization=None, bn_clr=False):
-    model = ResNet101(Bottleneck, [3, 4, 23, 3], num_classes, BatchNorm, bn_clr=bn_clr, num_channels=num_channels)
+def Deeplab(BatchNorm, num_classes=21, num_channels=3, freeze_bn=False, restore_from=None, initialization=None, bn_clr=False, get_feat=False):
+    model = ResNet101(Bottleneck, [3, 4, 23, 3], num_classes, BatchNorm, get_feat, num_channels=num_channels)
     if freeze_bn:
         model.apply(freeze_bn_func)
     # if initialization is None:

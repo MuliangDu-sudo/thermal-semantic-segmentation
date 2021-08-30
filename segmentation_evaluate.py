@@ -141,7 +141,7 @@ def seg_evaluation(args):
 
     loss_function = torch.nn.CrossEntropyLoss(ignore_index=13, reduction='mean')
 
-    mean_iu, avg_loss = seg_validate(args, net, val_dataloader, loss_function, device, visualizer)
+    mean_iu, avg_loss, class_iou = seg_validate(args, net, val_dataloader, loss_function, device, visualizer)
     print('checkpoint name: '+args.checkpoint_name)
     print('mean iou score: [{}]. val_loss: [{}]'.format(mean_iu, avg_loss))
 
