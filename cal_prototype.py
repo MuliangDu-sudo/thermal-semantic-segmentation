@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import transforms as T
 from PIL import Image
-from models import thermal_semantic_segmentation_models, semantic_segmentation_models
+from models import thermal_semantic_segmentation_models, semantic_segmentation_models, Deeplab
 import visdom
 from data import Cityscapes, TrainTDataset, Freiburg, Kitti
 from torch.utils.data import DataLoader
@@ -42,32 +42,19 @@ def calc_prototype(args):
     source_train_transform = double_transform
     target_train_transform = single_transform
 
-    # if args.source_dataset == 'Cityscapes':
-    #     source_dataset = Cityscapes('datasets/source_dataset', transforms=source_train_transform)
-    # elif args.source_dataset == 'freiburg_rgb':
-    #     source_dataset = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=source_train_transform,
-    #                               with_label=True, grayscale=args.grayscale)
-    # elif args.source_dataset == 'kitti':
-    #     source_dataset = Kitti('datasets/kitti', transforms=source_train_transform)
-    # else:
-    #     raise ValueError('source dataset does not exist.')
-
-    if args.target_dataset == 'flir':
-        target_dataset = TrainTDataset('datasets/target_dataset', transforms=target_train_transform)
-    elif args.target_dataset == 'freiburg_ir':
-        target_dataset = Freiburg('datasets/freiburg', split='train', domain='IR', transforms=target_train_transform,
+    if args.dataset == 'flir':
+        dataset = TrainTDataset('datasets/target_dataset', transforms=target_train_transform)
+    elif args.dataset == 'freiburg_ir':
+        dataset = Freiburg('datasets/freiburg', split='train', domain='IR', transforms=target_train_transform,
                                   with_label=False)
     else:
         raise ValueError('target dataset does not exist.')
 
-    # train_source_loader = DataLoader(source_dataset, batch_size=args.batch_size,
-    #                                  shuffle=True, num_workers=2, pin_memory=True, drop_last=True)
-    train_target_loader = DataLoader(target_dataset, batch_size=args.batch_size,
+    train_target_loader = DataLoader(dataset, batch_size=args.batch_size,
                                      shuffle=True, num_workers=2, pin_memory=True, drop_last=True)
 
     if args.net_mode == 'one_channel':
-        net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(num_classes=args.num_classes,
-                                                                               pretrained_backbone=False, with_feat=args.with_feat).to(device)
+        net = Deeplab(torch.nn.BatchNorm2d, num_classes=13, num_channels=1, freeze_bn=False, get_feat=True).to(device)
     elif args.net_mode == 'three_channels':
         net = semantic_segmentation_models.deeplabv2_resnet101(num_classes=args.num_classes,
                                                                                pretrained_backbone=False).to(device)
@@ -81,20 +68,20 @@ def calc_prototype(args):
     for epoch in range(args.epochs):
         for i, data_i in enumerate(train_target_loader):
 
-            target_image = data_i.to(device)
+            image = data_i['img'].to(device)
 
             net.eval()
 
             with torch.no_grad():
-                out = net(target_image)
-                vectors, ids = class_features.calculate_mean_vector(out[1], out[0])  # out[1] is feature, out[0] is output.
+                out = net(image)
+                vectors, ids = class_features.calculate_mean_vector(out['feat'], out['out'])  # out[1] is feature, out[0] is output.
                 #vectors, ids = class_features.calculate_mean_vector_by_output(feat_cls, output, model)
                 for t in range(len(ids)):
                     class_features.update_objective_SingleVector(ids[t], vectors[t].detach().cpu(), 'mean')
             if i % 10 == 0:
                 print('epoch [{}], prototype calculation process: [{}/{}]'.format(epoch, i, len(train_target_loader)))
 
-        save_path = os.path.join(os.path.dirname(args.resume_path), "prototypes_on_{}_from_{}".format(args.target_dataset, args.checkpoint_name))
+        save_path = os.path.join(args.root, 'prototypes', "prototypes_on_{}_from_{}".format(args.target_dataset, args.checkpoint_name))
         print('saving prototypes......')
         torch.save(class_features.objective_vectors, save_path)
 
@@ -105,7 +92,7 @@ class Class_Features:
         self.class_features = [[] for i in range(self.class_numbers)]
         self.num = np.zeros(numbers)
         self.device = device
-        self.objective_vectors = torch.zeros([self.class_numbers, 2048])     # 256 is the number of features
+        self.objective_vectors = torch.zeros([self.class_numbers, 256])     # 256 is the number of features
         self.objective_vectors_num = torch.zeros([self.class_numbers])
         self.proto_momentum = 0.9999
 
@@ -199,5 +186,8 @@ def get_logger(logdir):
 
 if __name__ == "__main__":
     ImageFile.LOAD_TRUNCATED_IMAGES = True
+    calc_proto_parse().add_argument('-root', type=str, default='')
     args_ = calc_proto_parse().parse_args()
+    args_.checkpoint_name = '256_freiburg_rgb2ir_segmentation.pth'
+
     calc_prototype(args_)

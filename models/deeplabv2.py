@@ -227,12 +227,9 @@ class ResNet101(nn.Module):
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2, BatchNorm=BatchNorm)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=1, dilation=2, BatchNorm=BatchNorm)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=1, dilation=4, BatchNorm=BatchNorm)
-        #self.layer5 = self._make_pred_layer(Classifier_Module, 2048, [6, 12, 18, 24], [6, 12, 18, 24], num_classes)
         self.layer5 = self._make_pred_layer(Classifier_Module2, 2048, [6, 12, 18, 24], [6, 12, 18, 24], num_classes)
-        # print(self.bn_clr)
-        # if self.bn_clr:
-        #     print('im here')
-        #     self.bn_pretrain = BatchNorm(2048, affine=affine_par)
+        if self.bn_clr:
+            self.bn_pretrain = BatchNorm(2048, affine=affine_par)
         self.get_feat = get_feat
 
         for m in self.modules():
@@ -278,19 +275,15 @@ class ResNet101(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
-        # if self.bn_clr:
-        #     x = self.bn_pretrain(x)
+        if self.bn_clr:
+            x = self.bn_pretrain(x)
 
-        #out = self.layer5(x, self.get_feat)
-        out = dict()
-        out['feat'] = x
-        x = self.layer5(x)
+        out = self.layer5(x, self.get_feat)
         
         # if not ssl:
         #     x = nn.functional.upsample(x, (h, w), mode='bilinear', align_corners=True)
         #     if lbl is not None:
-        #         self.loss = self.CrossEntropy2d(x, lbl)    
-        out['out'] = x
+        #         self.loss = self.CrossEntropy2d(x, lbl)
         return out
 
     def get_1x_lr_params(self):
@@ -361,7 +354,8 @@ def freeze_bn_func(m):
         m.bias.requires_grad = False
 
 def Deeplab(BatchNorm, num_classes=21, num_channels=3, freeze_bn=False, restore_from=None, initialization=None, bn_clr=False, get_feat=False):
-    model = ResNet101(Bottleneck, [3, 4, 23, 3], num_classes, BatchNorm, get_feat, num_channels=num_channels)
+    print('im here')
+    model = ResNet101(Bottleneck, [3, 4, 23, 3], num_classes=num_classes, BatchNorm=BatchNorm, bn_clr=bn_clr, num_channels=num_channels, get_feat=get_feat)
     if freeze_bn:
         model.apply(freeze_bn_func)
     # if initialization is None:
