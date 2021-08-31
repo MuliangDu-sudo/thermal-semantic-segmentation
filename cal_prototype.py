@@ -26,17 +26,12 @@ def calc_prototype(args):
 
     single_transform = T.Compose([
         T.Resize(size=(256, 512)),
-        T.RandomHorizontalFlip(),
         T.ToTensor(),
-        T.Normalize(args.normalize, args.normalize)
     ])
 
     double_transform = T.Compose([
         T.RandomResizedCrop(size=(256, 512), ratio=(1.5, 8 / 3.), scale=(0.5, 1.)),
-        # it return an image of size 256x512
-        T.RandomHorizontalFlip(),
         T.ToTensor(),
-        T.Normalize(args.normalize, args.normalize)
     ])
 
     source_train_transform = double_transform
@@ -80,10 +75,11 @@ def calc_prototype(args):
                     class_features.update_objective_SingleVector(ids[t], vectors[t].detach().cpu(), 'mean')
             if i % 10 == 0:
                 print('epoch [{}], prototype calculation process: [{}/{}]'.format(epoch, i, len(train_target_loader)))
-
-        save_path = os.path.join(args.root, 'prototypes', "prototypes_on_{}_from_{}".format(args.target_dataset, args.checkpoint_name))
+        save_path = os.path.join(args.root, 'prototypes')
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
         print('saving prototypes......')
-        torch.save(class_features.objective_vectors, save_path)
+        torch.save(class_features.objective_vectors, os.path.join(save_path, "prototypes_on_{}_from_{}".format(args.dataset, args.checkpoint_name.replace('.pth', ''))))
 
 
 class Class_Features:
@@ -173,21 +169,9 @@ class Class_Features:
             raise NotImplementedError('no such updating way of objective vectors {}'.format(name))
 
 
-def get_logger(logdir):
-    logger = logging.getLogger('ptsemseg')
-    file_path = os.path.join(logdir, 'run.log')
-    hdlr = logging.FileHandler(file_path)
-    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-    hdlr.setFormatter(formatter)
-    logger.addHandler(hdlr)
-    logger.setLevel(logging.INFO)
-    return logger
-
-
 if __name__ == "__main__":
     ImageFile.LOAD_TRUNCATED_IMAGES = True
-    calc_proto_parse().add_argument('-root', type=str, default='')
     args_ = calc_proto_parse().parse_args()
     args_.checkpoint_name = '256_freiburg_rgb2ir_segmentation.pth'
-
+    args_.root = '/data/data_bank/muliang_gp/Prototypical'
     calc_prototype(args_)

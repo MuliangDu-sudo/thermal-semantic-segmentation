@@ -16,6 +16,7 @@ from data import *
 from models import Deeplab
 from utils import transforms as T, freiburg_prediction_visualize, freiburg_palette
 from torch.utils.data import DataLoader
+from PIL import ImageFile
 
 
 def main(args):
@@ -94,8 +95,9 @@ def generate_pl(net, dataloader, device, args):
 
 
 if __name__ == "__main__":
+    ImageFile.LOAD_TRUNCATED_IMAGES = True
     parser = argparse.ArgumentParser(description="config")
-    parser.add_argument('--root', type=str, default='', help='pseudo label update thred')
+    parser.add_argument('--root', type=str, default='/data/data_bank/muliang_gp/Prototypical', help='pseudo label update thred')
     parser.add_argument('--soft', default=True, help='save soft pseudo label')
     parser.add_argument('--flip', default=False)
     parser.add_argument('-checkpoint_name', default='256_freiburg_rgb2ir_segmentation.pth')

@@ -102,9 +102,9 @@ def calc_proto_parse():
                         help='select input channel number of the net (1 or 3).')
     parser.add_argument('-dataset', type=str, default='freiburg_ir', help='which dataset as target.')
     parser.add_argument('-num_classes', type=int, default=13, help='number of classes.')
-    parser.add_argument('-resume_path', type=str, default='prototypes', help='path for saving prototypes.')
+    parser.add_argument('-root', type=str, default='', help='path for saving prototypes.')
     parser.add_argument('-epochs', default=4, help='number of epochs to train.')
-    parser.add_argument('-batch_size', type=int, default=1, help='batch size.')
+    parser.add_argument('-batch_size', type=int, default=64, help='batch size.')
     parser.add_argument('-checkpoint_name', type=str, default='freiburg_rgb2ir_cityscapes_segmentation.pth',
                         help='the name of trained model.')
     parser.add_argument('-with_feat', type=bool, default=True, help='whether to extract feature')
