@@ -26,8 +26,8 @@ def parse_file(file_name):
 
 class Freiburg(data.Dataset):
 
-    def __init__(self, root, split, domain, transforms, with_label, grayscale=False, translation_mode=False,
-                 translation_name='translation', segmentation_mode=False):
+    def __init__(self, args, root, split, domain, transforms=None, with_label=True, grayscale=False, translation_mode=False,
+                 translation_name='translation', segmentation_mode=False, augmentations=None, self_train=False):
         """
         :param root: str. root path to the dataset.
         :param split: str. train or test.
@@ -52,6 +52,11 @@ class Freiburg(data.Dataset):
         self.translation_mode = translation_mode
         self.translation_name = translation_name
         self.segmentation_mode = segmentation_mode
+        self.args = args
+        self.augmentations = augmentations(self.args)
+        self.self_train = self_train
+
+
     def __len__(self):
         return len(self.data_list)
 
@@ -98,10 +103,35 @@ class Freiburg(data.Dataset):
             label = np.array(Image.open(os.path.join(label_name)).resize((960, 320), Image.NEAREST), dtype=np.uint8)
             label = label[:, 150:850]
             label = Image.fromarray(label, mode='L')
-            image, label = self.transforms(image, label)
-            # return_item = image, np.array(label, dtype=np.int64)
-            input_dict['img'] = image
-            input_dict['label'] = np.array(label, dtype=np.int64)
+
+            label_hard, label_soft, weak_params = None, None, None
+            if self.self_train:
+                if self.args.proto_rectify:
+                    label_soft = np.load(
+                        os.path.join(self.args.path_soft, os.path.basename(only_img_name).replace('.png', '.npy')))
+                else:
+                    label_hard_path = os.path.join(self.args.path_lp, os.path.basename(only_img_name))
+                    label_hard = Image.open(label_hard_path)
+                    label_hard = label_hard.resize(image.size, Image.NEAREST)
+                    label_hard = np.array(label_hard, dtype=np.uint8)
+                    if self.args.threshold:
+                        conf = np.load(
+                            os.path.join(self.args.path_lp, os.path.basename(only_img_name).replace('.png', '_conf.npy')))
+                        label_hard[conf <= self.args.threshold] = self.args.ignore_index
+                image_full = image.copy()
+                image, label, label_hard, label_soft, weak_params = self.augmentations(image, label, label_hard, label_soft)
+                input_dict['image'] = (T.ToTensor()(image)).float()
+                input_dict['label'] = (T.ToTensor()(label)).long()
+                input_dict['label_hard'] = (T.ToTensor()(label_hard)).long()
+                input_dict['label_soft'] = (T.ToTensor()(label_soft)).float()
+                input_dict['weak_params'] = weak_params
+                input_dict['image_full'] = image_full
+
+            else:
+                image, label = self.transforms(image, label)
+                # return_item = image, np.array(label, dtype=np.int64)
+                input_dict['image'] = image
+                input_dict['label'] = np.array(label, dtype=np.uint8)
         else:
             input_dict['img'] = self.transforms(image)
 
@@ -109,6 +139,8 @@ class Freiburg(data.Dataset):
             input_dict['img'] = self.transforms(image)
             input_dict['img_path'] = image_name.replace(str(self.split), self.translation_name)
             #return_item = image, translation_name
+
+        input_dict = {k: v for k, v in input_dict.items() if v is not None}
 
         return input_dict
 
