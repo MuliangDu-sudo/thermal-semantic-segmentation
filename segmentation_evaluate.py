@@ -21,22 +21,22 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 MODEL_ROOT_PATH = './checkpoints/semantic_segmentation'
 
 
-def seg_validate(args, sem_net, val_data, loss_func, device, vis):
+def seg_validate(args, sem_net, val_data, loss_func, device, vis=None):
     print('validating...')
     val_loss = AverageMeter('val_loss', ':3.4f')
     sem_net.eval()
     prediction_list, label_list = [], []
     print(len(val_data))
-    random_id = np.random.choice(len(val_data), args.num_samples_show)
+    # random_id = np.random.choice(len(val_data), args.num_samples_show)
     # i = 0
     for i, item in enumerate(tqdm(val_data)):
-        image = item[0].to(device)
-        label = item[1].to(device)
-        if all([args.baseline, args.target_domain == 'Grayscale', args.source_domain == 'RGB']) \
-                or all([args.baseline, args.target_domain == 'Thermal', args.source_domain == 'RGB']):
-            image = image.expand(-1, 3, -1, -1)
+        image = item['image'].to(device)
+        label = item['label'].to(device)
+        # if all([args.baseline, args.target_domain == 'Grayscale', args.source_domain == 'RGB']) \
+        #         or all([args.baseline, args.target_domain == 'Thermal', args.source_domain == 'RGB']):
+        #     image = image.expand(-1, 3, -1, -1)
         outputs = sem_net(image)
-        outputs = torch.nn.Upsample(size=(256, 512), mode='bilinear', align_corners=True)(outputs)
+        outputs = torch.nn.Upsample(size=(256, 512), mode='bilinear', align_corners=True)(outputs['out'])
         loss = loss_func(outputs, label)
 
         predictions = outputs.max(1)[1].squeeze_(1).cpu().numpy()
@@ -51,19 +51,26 @@ def seg_validate(args, sem_net, val_data, loss_func, device, vis):
         #     vis.images(np.uint8(predictions[0]), win='prediction [{}]'.format(i), padding=2,
         #                opts=dict(title='prediction [{}]'.format(i), caption='prediction [{}]'.format(i)))
         # i += 1
-        if args.visualize_prediction:
-            save_path_root = 'predictions/{}'.format(args.checkpoint_name.replace('.pth', ''))
+        if args.visualize_prediction is not None:
+            save_path_root = os.path.join(args.root, 'predictions/{}'.format(args.checkpoint_name.replace('.pth', '')))
             if args.baseline:
                 save_path_root = 'baseline_predictions/apply_{}_image_on_{}_domain_model'.format(args.target_domain, args.source_domain,)
             if args.generator_type == 't2s':
                 save_path_root = 'predictions/t2s/{}'.format(args.checkpoint_name.replace('.pth', ''))
             if not os.path.exists(save_path_root):
                 os.makedirs(save_path_root)
-            if i % 1 == 0:
+            if args.visualize_prediction == 'save_all' and i % 1 == 0:
                 new_mask = freiburg_prediction_visualize(predictions[0], freiburg_palette())
                 label = freiburg_prediction_visualize(label[0].squeeze_(1).cpu().numpy(), freiburg_palette())
                 image = TT.ToPILImage()(image[0])
                 new_mask.save(os.path.join(save_path_root, str(i)+'_prediction.png'))
+                image.save(os.path.join(save_path_root, str(i)+'_image.png'))
+                label.save(os.path.join(save_path_root, str(i) + '_groundtruth.png'))
+            elif args.visualize_prediction == 'save_one' and i == 0:
+                new_mask = freiburg_prediction_visualize(predictions[0], freiburg_palette())
+                label = freiburg_prediction_visualize(label[0].squeeze_(1).cpu().numpy(), freiburg_palette())
+                image = TT.ToPILImage()(image[0])
+                new_mask.save(os.path.join(save_path_root, str(i)+'_prediction_{}.png'.format(args.iter_counter)))
                 image.save(os.path.join(save_path_root, str(i)+'_image.png'))
                 label.save(os.path.join(save_path_root, str(i) + '_groundtruth.png'))
 
