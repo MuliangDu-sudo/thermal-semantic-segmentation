@@ -198,8 +198,11 @@ def seg_main(args, logger):
         mean_iu, val_loss, class_iou = seg_validate(args, net, target_val_dataloader, loss_function, device, visualizer)
         fmt_str = 'target test dataset mean iou score: ' + str(mean_iu)
         logger.info(fmt_str)
+        print(fmt_str)
         for k, v in class_iou.items():
-            logger.info('target set class {}: {}'.format(k, v))
+            fmt_str = 'target set class {}: {}'.format(k, v)
+            logger.info(fmt_str)
+            print(fmt_str)
 
 
 if __name__ == '__main__':
