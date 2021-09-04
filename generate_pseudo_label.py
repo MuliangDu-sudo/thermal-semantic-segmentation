@@ -38,7 +38,7 @@ def main(args):
         dataset = Cityscapes('datasets/dataset', transforms=train_transform)
 
     elif args.dataset == 'freiburg_ir':
-        dataset = Freiburg('datasets/freiburg', split='train', domain='IR', transforms=train_transform,
+        dataset = Freiburg(args, root='datasets/freiburg', split='train', domain='IR', transforms=train_transform,
                                   with_label=True)
     elif args.dataset == 'freiburg_rgb':
         dataset = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=train_transform,
@@ -51,7 +51,7 @@ def main(args):
 
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=2,
                                 pin_memory=True,
-                                drop_last=True)
+                                drop_last=False)
 
     with torch.no_grad():
         generate_pl(net, dataloader, device, args)
@@ -66,7 +66,7 @@ def generate_pl(net, dataloader, device, args):
         os.makedirs(pseudo_save_path)
 
     for data_i in dataloader:
-        images = data_i['img'].to(device)
+        images = data_i['image'].to(device)
         filename = data_i['img_path']
 
         out = net(images)
