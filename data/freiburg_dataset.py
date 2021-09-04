@@ -53,7 +53,7 @@ class Freiburg(data.Dataset):
         self.translation_name = translation_name
         self.segmentation_mode = segmentation_mode
         self.args = args
-        self.augmentations = augmentations(self.args)
+        self.augmentations = augmentations
         self.self_train = self_train
 
 
@@ -69,7 +69,7 @@ class Freiburg(data.Dataset):
         input_dict = {}
         input_dict['img_path'] = only_img_name
 
-        if self.domain == 'IR' and not self.segmentation_mode:
+        if self.domain == 'IR' and not self.segmentation_mode or self.self_train:
             image = np.array(Image.open(os.path.join(image_name)).resize((960, 320), Image.BICUBIC),  dtype=np.float32)
             image = image[:, 150:850]
             # normalize IR data (is in range 0, 2**16 --> crop to relevant range(20800, 27000))
@@ -92,7 +92,7 @@ class Freiburg(data.Dataset):
                 image = image[:, 150:850, :]
             image = Image.fromarray(np.uint8(image))
 
-        elif self.segmentation_mode:
+        elif self.segmentation_mode and not self.self_train:
             image_name = image_name.replace(str(self.split), self.translation_name)
             image = Image.open(os.path.join(image_name))
 
@@ -122,16 +122,16 @@ class Freiburg(data.Dataset):
                 image, label, label_hard, label_soft, weak_params = self.augmentations(image, label, label_hard, label_soft)
                 input_dict['image'] = (T.ToTensor()(image)).float()
                 input_dict['label'] = (T.ToTensor()(label)).long()
-                input_dict['label_hard'] = (T.ToTensor()(label_hard)).long()
-                input_dict['label_soft'] = (T.ToTensor()(label_soft)).float()
+                input_dict['label_hard'] = (T.ToTensor()(label_hard)).long() if label_hard is not None else None
+                input_dict['label_soft'] = label_soft.float() if label_soft is not None else None
                 input_dict['weak_params'] = weak_params
-                input_dict['image_full'] = image_full
+                input_dict['image_full'] = (T.ToTensor()(image_full)).float()
 
             else:
                 image, label = self.transforms(image, label)
                 # return_item = image, np.array(label, dtype=np.int64)
                 input_dict['image'] = image
-                input_dict['label'] = np.array(label, dtype=np.uint8)
+                input_dict['label'] = np.array(label, dtype=np.int64)
         else:
             input_dict['img'] = self.transforms(image)
 
@@ -147,8 +147,9 @@ class Freiburg(data.Dataset):
 
 class FreiburgTest(Freiburg):
 
-    def __init__(self, root, split, domain, transforms, with_label, grayscale=False, transform_label=True):
-        super(FreiburgTest, self).__init__(root, split, domain, transforms, with_label, grayscale)
+    def __init__(self, args, root, split, domain, transforms, with_label, grayscale=False, transform_label=True):
+        super(FreiburgTest, self).__init__(args=args, root=root, split=split, domain=domain, transforms=transforms,
+                                           with_label=with_label, grayscale=grayscale)
         self.transform_label = transform_label
 
     def __getitem__(self, item):
@@ -180,6 +181,7 @@ class FreiburgTest(Freiburg):
         else:
             raise ValueError('Not a valid domain.')
 
+        input_dict = {}
         if self.with_label:
             label = np.load(os.path.join(label_name))
             label = Image.fromarray(label).resize((960, 320), Image.NEAREST)
@@ -190,7 +192,10 @@ class FreiburgTest(Freiburg):
             else:
                 image = self.transforms(image)
                 label = T.ToTensor()(label)
-            return image, label
+            input_dict['image'] = image
+            input_dict['label'] = label
+
+            return input_dict
 
         else:
             image = self.transforms(image)
