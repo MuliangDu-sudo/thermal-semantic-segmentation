@@ -63,7 +63,7 @@ class RandomCrop(object):
             return img, mask
         if w < tw or h < th:
             if lpsoft is not None:
-                lpsoft = F.interpolate(lpsoft.unsqueeze(0), size=[th, tw], mode='bolinear', align_corners=True)[0]
+                lpsoft = F.interpolate(lpsoft.unsqueeze(0), size=[th, tw], mode='bilinear', align_corners=True)[0]
             if mask1 is not None:
                 return (
                         img.resize((tw, th), Image.BILINEAR),
@@ -190,4 +190,5 @@ class RandomHorizontallyFlip(object):
 def get_composed_augmentations(args):
     return Compose([RandomSized(args.resize),
                     RandomCrop(args.rcrop),
-                    RandomHorizontallyFlip(args.hflip)])
+                    RandomHorizontallyFlip(args.hflip)
+    ])

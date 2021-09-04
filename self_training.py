@@ -1,13 +1,16 @@
+import argparse
+
 import torch
 import os
 import numpy as np
 from models import Deeplab
 import torch.nn.functional as F
 from data import Freiburg, FreiburgTest
-from utils import get_composed_augmentations
+from utils import get_composed_augmentations, get_logger
 from torch.utils.data import DataLoader
 import time
 from utils import transforms as T
+from PIL import ImageFile
 
 
 class SelfTrain:
@@ -17,8 +20,8 @@ class SelfTrain:
         self.ema_net = ema_net
         self.num_classes = self.args.num_classes
         self.optimizer_seg = optimizer_seg
-        self.objective_vectors = torch.zeros([self.num_classes, 256])
-        self.objective_vectors_num = torch.zeros([self.num_classes])
+        self.objective_vectors = torch.zeros([self.num_classes, 256]).to(device)
+        self.objective_vectors_num = torch.zeros([self.num_classes]).to(device)
         self.logger = logger
         self.seg_loss = torch.nn.CrossEntropyLoss(ignore_index=args.ignore_index, reduction='mean')
         self.scale_rate = 4
@@ -27,10 +30,10 @@ class SelfTrain:
     def step(self, source_image, source_label, target_image, target_image_full, target_lp_soft, target_lp_hard,
              target_weak_params):
         source_out = self.seg_net(source_image)
-        scaled_size = (int(source_label.size()[2]/self.scale_rate, int(source_label.size()[3]/self.scale_rate)))
+        scaled_size = (int(source_label.size()[1]/self.scale_rate), int(source_label.size()[2]/self.scale_rate))
         source_out = torch.nn.Upsample(
-            size=scaled_size,
-            mode='bilinear', align_corners=True)(source_out)
+            size=(source_label.size()[1], source_label.size()[2]),
+            mode='bilinear', align_corners=True)(source_out['out'])
 
         loss_source = self.seg_loss(source_out, source_label)
         loss_source.backward()
@@ -121,7 +124,7 @@ class SelfTrain:
         prediction = F.softmax(prediction, dim=1)
         prediction = torch.clamp(prediction, min=1e-7, max=1.0)
         mask = (label != self.args.ignore_index).float()
-        label_one_hot = torch.nn.functional.one_hot(label, self.num_classes).float().to(self.device)
+        label_one_hot = torch.nn.functional.one_hot(label, self.num_classes+1).float().to(self.device)
         label_one_hot = torch.clamp(label_one_hot.permute(0, 3, 1, 2)[:, :-1, :, :], min=1e-4, max=1.0)
         rce = -(torch.sum(prediction * torch.log(label_one_hot), dim=1) * mask).sum() / (mask.sum() + 1e-6)
         return rce
@@ -178,73 +181,5 @@ class SelfTrain:
             pass
         else:
             raise NotImplementedError('no such updating way of objective vectors {}'.format(name))
-
-
-def main(args, logger):
-    device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
-
-    train_transform = T.Compose([
-        T.RandomResizedCrop(size=(256, 512), ratio=(1.5, 8 / 3.), scale=(0.5, 1.)),
-        T.RandomHorizontalFlip(),
-        T.ToTensor(),
-    ])
-
-    source_dataset = Freiburg(args=args, root='datasets/freiburg', split='train', domain='RGB', translation_name=args.translation_name,
-                              segmentation_mode=True, transforms=train_transform)
-    target_dataset = Freiburg(args=args, root='datasets/freiburg', split='train', domain='IR', segmentation_mode=True,
-                              self_train=args.self_train, augmentations=get_composed_augmentations)
-    target_val_dataset = FreiburgTest('datasets/freiburg', split='test', domain='IR', transforms=None,
-                                  with_label=True)
-
-    train_source_loader = DataLoader(source_dataset, batch_size=args.batch_size,
-                                     shuffle=True, num_workers=2, pin_memory=True, drop_last=True)
-    train_target_loader = DataLoader(target_dataset, batch_size=args.batch_size,
-                                     shuffle=True, num_workers=2, pin_memory=True, drop_last=True)
-    target_val_dataloader = DataLoader(target_val_dataset, batch_size=args.val_batch_size, shuffle=False, num_workers=2, pin_memory=True,
-                                drop_last=True)
-
-    seg_net = Deeplab(torch.nn.BatchNorm2d, num_classes=13, num_channels=1, freeze_bn=False).to(device)
-
-    restart_epoch = 0
-    best_score = 0
-    lowest_val_loss = 1000
-
-    if args.load_model:
-        load_checkpoint = torch.load(os.path.join(args.model_root_path, args.checkpoint_name))
-        restart_epoch = load_checkpoint['epoch'] + 1
-        # if 'val_loss' in load_checkpoint:
-        #     lowest_val_loss = load_checkpoint['val_loss']
-        print('loading trained model. start from epoch {}. Last validation loss is {}'.format(restart_epoch, lowest_val_loss))
-        seg_net.load_state_dict(load_checkpoint['sem_net_state_dict'])
-        best_score = load_checkpoint['best_score']
-        logger.info('successfully loaded model {}. Resume from epoch {}. Best score is {}'.format(args.checkpoint_name, restart_epoch, best_score))
-
-    if args.ema:
-        ema_net = Deeplab(torch.nn.BatchNorm2d, num_classes=13, num_channels=1, freeze_bn=False).to(device)
-        ema_net.load_state_dict(seg_net.state_dict().copy())
-
-    for epoch in range(restart_epoch, restart_epoch+args.epochs):
-        for target_data, source_data in zip(train_target_loader, train_source_loader):
-            target_image = target_data['image'].to(device)
-            target_image_full = target_data['image_full'].to(device)
-            target_weak_params = target_data['weak_params']
-
-            target_label_hard = target_data['label_hard'].to(device) if 'label_hard' in target_data.keys() else None
-            target_label_soft = target_data['label_soft'].to(device) if 'label_soft' in target_data.keys() else None
-
-            source_image = source_data['image'].to(device)
-            source_label = source_data['label'].to(device)
-
-            start_ts = time.time()
-            seg_net.train()
-            ema_net.train()
-
-            optimizer_seg = torch.optim.Adam(seg_net.parameters(), lr=args.lr)
-            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer_seg, 'min', verbose=True)
-
-            self_training = SelfTrain(args, seg_net, ema_net, optimizer_seg, device, logger)
-
-            loss_target_pseudo, loss_source = self_training.step(source_image, source_label, target_image, target_image_full,
-                                                                 target_label_soft, target_label_hard, target_weak_params)
 
 
