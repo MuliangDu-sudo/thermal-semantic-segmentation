@@ -132,11 +132,12 @@ class CityscapesTranslation(BaseDataset):
         return label_list
 
     def __getitem__(self, index):
+        input_dict = {}
         image_name = self.data_list[index]
         image = Image.open(os.path.join(image_name))
         label_name = self.label_list[index]
         label = Image.open(os.path.join(label_name))
-        image, label = self.transforms(image, label)
+        input_dict['image'], label = self.transforms(image, label)
         # remap label
         if isinstance(label, torch.Tensor):
             label = label.numpy()
@@ -145,4 +146,5 @@ class CityscapesTranslation(BaseDataset):
         if self.id_to_train_id:
             for k, v in self.id_to_train_id.items():
                 label_copy[label == k] = v
-        return image, label_copy.copy()
+        input_dict['label'] = label_copy
+        return input_dict

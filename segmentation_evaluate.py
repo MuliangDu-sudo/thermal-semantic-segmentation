@@ -1,4 +1,4 @@
-from models import thermal_semantic_segmentation_models, semantic_segmentation_models
+from models import thermal_semantic_segmentation_models, semantic_segmentation_models, Deeplab
 import torch
 from utils import transforms as T
 from torchvision import transforms as TT
@@ -110,7 +110,7 @@ def seg_evaluation(args):
         source_dataset = FreiburgTest('datasets/freiburg', split='test', domain='RGB', transforms=train_transform,
                                       with_label=True, grayscale=args.grayscale)
     elif args.dataset == 'freiburg_ir':
-        source_dataset = FreiburgTest('datasets/freiburg', split='test', domain='IR', transforms=train_transform,
+        source_dataset = FreiburgTest(args=args, root='datasets/freiburg', split='test', domain='IR', transforms=train_transform,
                                   with_label=True)
     elif args.dataset == 'freiburg_t2s':
         source_dataset = FreiburgT2S(folder=args.t2s_folder, transforms=train_transform)
@@ -136,8 +136,9 @@ def seg_evaluation(args):
                                     pin_memory=True,
                                     drop_last=True)
     if args.net_mode == 'one_channel':
-        net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(num_classes=args.num_classes,
-                                                                               pretrained_backbone=False).to(device)
+        # net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(num_classes=args.num_classes,
+        #                                                                        pretrained_backbone=False).to(device)
+        net = Deeplab(torch.nn.BatchNorm2d, num_classes=13, num_channels=1, freeze_bn=False, get_feat=True).to(device)
     elif args.net_mode == 'three_channels':
         net = semantic_segmentation_models.deeplabv2_resnet101(num_classes=args.num_classes,
                                                                                pretrained_backbone=False).to(device)
@@ -151,7 +152,9 @@ def seg_evaluation(args):
     mean_iu, avg_loss, class_iou = seg_validate(args, net, val_dataloader, loss_function, device, visualizer)
     print('checkpoint name: '+args.checkpoint_name)
     print('mean iou score: [{}]. val_loss: [{}]'.format(mean_iu, avg_loss))
-
+    for k, v in class_iou.items():
+        fmt_str = 'target set class {}: {}'.format(k, v)
+        print(fmt_str)
 
 if __name__ == '__main__':
     args_ = evaluation_parse().parse_args()

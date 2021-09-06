@@ -141,7 +141,7 @@ def seg_main(args, logger):
     if args.net_mode == 'one_channel':
         net = thermal_semantic_segmentation_models.deeplabv2_resnet101_thermal(num_classes=args.num_classes,
                                                                                pretrained_backbone=False, with_feat=args.with_feat).to(device)
-        net = Deeplab(torch.nn.BatchNorm2d, num_classes=13, num_channels=1, freeze_bn=False).to('cuda')
+        net = Deeplab(torch.nn.BatchNorm2d, num_classes=args.num_classes, num_channels=1, freeze_bn=False).to('cuda')
     elif args.net_mode == 'three_channels':
         net = semantic_segmentation_models.deeplabv2_resnet101(num_classes=args.num_classes,
                                                                                pretrained_backbone=False).to(device)
@@ -169,11 +169,6 @@ def seg_main(args, logger):
     for epoch in range(restart_epoch, restart_epoch+args.epochs):
         print("--------START TRAINING [EPOCH: {}]--------".format(epoch))
         seg_train(args, net, train_dataloader, loss_function, optimizer, device, visualizer, epoch, loss_dict, logger)
-        # torch.save({
-        #     'epoch': epoch,
-        #     'sem_net_state_dict': net.state_dict(),
-        #     'best_score': best_score,
-        # }, os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
         mean_iu, val_loss, class_iou = seg_validate(args, net, val_dataloader, loss_function, device, visualizer)
         scheduler.step(val_loss)
 

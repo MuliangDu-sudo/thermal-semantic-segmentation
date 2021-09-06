@@ -56,7 +56,6 @@ class Freiburg(data.Dataset):
         self.augmentations = augmentations
         self.self_train = self_train
 
-
     def __len__(self):
         return len(self.data_list)
 

@@ -77,7 +77,7 @@ def seg_parse():
 def evaluation_parse():
     parser = argparse.ArgumentParser(description='segmentation options')
     parser.add_argument('-val_batch_size', type=int, default=1, help='validation batch size.')
-    parser.add_argument('-checkpoint_name', type=str, default='freiburg_rgb2ir_cityscapes_segmentation.pth',
+    parser.add_argument('-checkpoint_name', type=str, default='256_freiburg_rgb2ir_segmentation.pth',
                         help='the name of trained model.')
     parser.add_argument('-num_samples_show', type=int, default=3, help='number of samples to show in visdom.')
     parser.add_argument('-net_mode', type=str, default='one_channel', help='select input channel number of the net (1 or 3).')
@@ -86,7 +86,7 @@ def evaluation_parse():
     parser.add_argument('-num_classes', type=int, default=13, help='number of classes.')
     parser.add_argument('-data_split', type=bool, default=False, help='whether to split dataset.')
     parser.add_argument('-translation_name', type=str, default='cityscapes_rgb2freiburg_ir', help='the folder name of translations.')
-    parser.add_argument('-visualize_prediction', type=bool, default=True, help='whether to save visualized prediction.')
+    parser.add_argument('-visualize_prediction', default=None, help='whether to save visualized prediction.')
     parser.add_argument('-ignore_index', type=int, default=12, help='ignore index. cityscapes is 255; freiburg is 12.')
     parser.add_argument('-generator_type', type=str, default='s2t', help='the type of generator.')
     parser.add_argument('-t2s_folder', type=str, default='test_cityscapes_rgb2freiburg_ir/')
