@@ -60,6 +60,14 @@ def main(args, logger):
     ema_net = Deeplab(torch.nn.BatchNorm2d, num_classes=13, num_channels=1, freeze_bn=False, get_feat=True).to(device)
     ema_net.load_state_dict(seg_net.state_dict().copy())
 
+    optimizer_seg = torch.optim.Adam(seg_net.parameters(), lr=args.lr)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer_seg, 'min', verbose=True)
+    self_training = SelfTrain(args, seg_net, ema_net, optimizer_seg, device, logger)
+
+    objective_vectors = torch.load(os.path.join(args.root,
+                                                'prototypes_on_{}_from_{}'.format(opt.tgt_dataset, opt.model_name)))
+    self_training.objective_vectors = torch.Tensor(objective_vectors).to(0)
+
     for epoch in range(restart_epoch, restart_epoch+args.epochs):
 
         pseudo_loss = AverageMeter('pseudo_loss', ':3.4f')
@@ -84,10 +92,7 @@ def main(args, logger):
             seg_net.train()
             ema_net.train()
 
-            optimizer_seg = torch.optim.Adam(seg_net.parameters(), lr=args.lr)
-            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer_seg, 'min', verbose=True)
-
-            self_training = SelfTrain(args, seg_net, ema_net, optimizer_seg, device, logger)
+            optimizer_seg.zero_grad()
 
             loss_target_pseudo, loss_source = self_training.step(source_image, source_label, target_image, target_image_full,
                                                                  target_label_soft, target_label_hard, target_weak_params)
@@ -108,6 +113,12 @@ def main(args, logger):
 
             i += 1
             args.iter_counter += 1
+        torch.save({
+            'epoch': epoch,
+            'sem_net_state_dict': seg_net.state_dict(),
+            'val_loss': lowest_val_loss,
+        }, os.path.join(args.model_root_path, args.new_checkpoint_name))
+
 
 if __name__ == "__main__":
     ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -119,6 +130,7 @@ if __name__ == "__main__":
     parser.add_argument('--proto_rectify', default=True)
     parser.add_argument('--load_model', type=bool, default=True, help='whether to load trained model')
     parser.add_argument('-checkpoint_name', default='256_freiburg_rgb2ir_segmentation.pth')
+    parser.add_argument('-new_checkpoint_name', default='256_freiburg_rgb2ir_onlytarget_segmentation.pth')
     parser.add_argument('-batch_size', default=4)
     parser.add_argument('--use_saved_pseudo', type=bool, default=True, help='whether to use saved pseudo')
     parser.add_argument('--self_train', type=bool, default=True, help='whether to train with self-training')
@@ -145,7 +157,7 @@ if __name__ == "__main__":
     args_ = parser.parse_args()
     args_.path_soft = os.path.join(args_.root, 'pseudo_labels', args_.pseudo_type, args_.checkpoint_name.replace('.pth', ''))
 
-    args_.logdir = os.path.join('logs', 'self-training', args_.checkpoint_name.replace('.pth', ''))
+    args_.logdir = os.path.join('logs', 'self-training', args_.new_checkpoint_name.replace('.pth', ''))
     if not os.path.exists(args_.logdir):
         os.makedirs(args_.logdir)
     logger_ = get_logger(args_.logdir)

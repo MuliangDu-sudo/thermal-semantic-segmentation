@@ -26,19 +26,21 @@ def train_parse():
 
 def translation_parse():
     parser = argparse.ArgumentParser(description='translation options')
-    parser.add_argument('-dataset', type=str, default='freiburg_test_t2s', help='dataset to be translated.')
+    parser.add_argument('--root', type=str, default='/data/data_bank/muliang_gp/Prototypical',
+                        help='pseudo label update thred')
+    parser.add_argument('-dataset', type=str, default='Cityscapes', help='dataset to be translated.')
     parser.add_argument('-batch_size', type=int, default=1, help='batch size for translation.')
     parser.add_argument('-checkpoint_name', type=str, default='cityscapes_rgb2freiburg_ir.pth',
                         help='the name of trained model.')
-    parser.add_argument('-input_nc', type=int, default=1, help='number of generator input channel.')
-    parser.add_argument('-output_nc', type=int, default=3, help='number of generator output channel.')
+    parser.add_argument('-input_nc', type=int, default=3, help='number of generator input channel.')
+    parser.add_argument('-output_nc', type=int, default=1, help='number of generator output channel.')
     parser.add_argument('-save_image_size', type=tuple, default=(320, 700), help='images are save with this size.')
-    parser.add_argument('-normalize', type=tuple, default=(0.5, ),
+    parser.add_argument('-normalize', type=tuple, default=(0.5, 0.5, 0.5),
                         help='normalization of input data.')
-    parser.add_argument('-denormalize', type=tuple, default=(0.5, 0.5, 0.5),
+    parser.add_argument('-denormalize', type=tuple, default=(0.5, ),
                         help='denormalization of output data.')
     parser.add_argument('-grayscale', type=bool, default=False, help='convert image to grayscale.')
-    parser.add_argument('-generator_type', type=str, default='t2s', help='the type of generator.')
+    parser.add_argument('-generator_type', type=str, default='s2t', help='the type of generator.')
     parser.add_argument('-translation_name_suffix', type=str, default='cityscapes', help='suffix of translation name.'
                                                                                          'no suffix is ''.')
     return parser
@@ -46,22 +48,24 @@ def translation_parse():
 
 def seg_parse():
     parser = argparse.ArgumentParser(description='segmentation options')
+    parser.add_argument('--root', type=str, default='/data/data_bank/muliang_gp/Prototypical',
+                        help='pseudo label update thred')
     parser.add_argument('-load_model', default=False, help='train with pretrained model.')
     parser.add_argument('-epochs', default=50, help='number of epochs to train.')
     parser.add_argument('-batch_size', type=int, default=8, help='batch size.')
     parser.add_argument('-val_batch_size', type=int, default=8, help='validation batch size.')
     parser.add_argument('-checkpoint_name', type=str, default='pure_freiburg_rgb_13_segmentation.pth',
                         help='the name of trained model.')
-    parser.add_argument('-new_checkpoint_name', type=str, default='256_freiburg_rgb2ir_segmentation.pth',
+    parser.add_argument('-new_checkpoint_name', type=str, default='256_cityscapes_rgb2freiburg_ir_segmentation.pth',
                         help='the name of trained model. If don\'t want to create new checkpoint, use same name as checkpoint_name.')
     parser.add_argument('-num_samples_show', type=int, default=3, help='number of samples to show in visdom.')
     parser.add_argument('-net_mode', type=str, default='one_channel', help='select input channel number of the net (1 or 3).')
-    parser.add_argument('-dataset', type=str, default='freiburg_translation', help='select the dataset.')
+    parser.add_argument('-dataset', type=str, default='cityscapes_translation', help='select the dataset.')
     parser.add_argument('-num_classes', type=int, default=13, help='number of classes.')
     parser.add_argument('-lr', type=float, default=0.0001, help='learning rate')
     parser.add_argument('-data_split', type=bool, default=False, help='whether to split dataset.')
     parser.add_argument('-translation_name', type=str, default='freiburg_rgb2ir_130epochs', help='the folder name of translations.')
-    parser.add_argument('-visualize_prediction', type=bool, default=True, help='whether to save visualized prediction.')
+    parser.add_argument('-visualize_prediction', type=bool, default=False, help='whether to save visualized prediction.')
     parser.add_argument('-ignore_index', type=int, default=12, help='ignore index. cityscapes is 255; freiburg is 12.')
     parser.add_argument('-generator_type', type=str, default='s2t', help='the type of generator.')
     parser.add_argument('-t2s_folder', type=str, default='test_cityscapes_rgb2freiburg_ir/')

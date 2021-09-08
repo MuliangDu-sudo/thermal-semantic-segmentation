@@ -36,11 +36,18 @@ class Cityscapes(BaseDataset):
                'vegetation', 'terrain', 'sky', 'person', 'rider', 'car', 'truck', 'bus', 'train', 'motorcycle',
                'bicycle']
 
+    # ID_TO_TRAIN_ID = {
+    #     7: 0, 8: 1, 11: 2, 12: 3, 13: 4, 17: 5,
+    #     19: 6, 20: 7, 21: 8, 22: 9, 23: 10, 24: 11, 25: 12,
+    #     26: 13, 27: 14, 28: 15, 31: 16, 32: 17, 33: 18
+    # }
+
     ID_TO_TRAIN_ID = {
         7: 0, 8: 1, 11: 2, 12: 3, 13: 4, 17: 5,
-        19: 6, 20: 7, 21: 8, 22: 9, 23: 10, 24: 11, 25: 12,
-        26: 13, 27: 14, 28: 15, 31: 16, 32: 17, 33: 18
+        19: 5, 20: 5, 21: 6, 22: 7, 23: 8, 24: 9, 25: 9,
+        26: 10, 27: 10, 28: 10, 31: 10, 32: 11, 33: 11
     }
+
     TRAIN_ID_TO_COLOR = [(128, 64, 128), (244, 35, 232), (70, 70, 70), (102, 102, 156),
                                   (190, 153, 153), (153, 153, 153), (250, 170, 30), (220, 220, 0),
                                   (107, 142, 35), (152, 251, 152), (70, 130, 180), (220, 20, 60),
@@ -62,7 +69,7 @@ class Cityscapes(BaseDataset):
                                          os.path.join(data_folder, split), os.path.join(label_folder, split),
                                          id_to_train_id=Cityscapes.ID_TO_TRAIN_ID,
                                          train_id_to_color=Cityscapes.TRAIN_ID_TO_COLOR, **kwargs)
-
+        self.ignore_label = 12
     def parse_label_file(self, label_list_file):
         with open(label_list_file, "r") as f:
             label_list = [line.strip().replace("leftImg8bit", "gtFine_labelIds") for line in f.readlines()]
@@ -99,11 +106,18 @@ class CityscapesTranslation(BaseDataset):
                'vegetation', 'terrain', 'sky', 'person', 'rider', 'car', 'truck', 'bus', 'train', 'motorcycle',
                'bicycle']
 
+    # ID_TO_TRAIN_ID = {
+    #     7: 0, 8: 1, 11: 2, 12: 3, 13: 4, 17: 5,
+    #     19: 6, 20: 7, 21: 8, 22: 9, 23: 10, 24: 11, 25: 12,
+    #     26: 13, 27: 14, 28: 15, 31: 16, 32: 17, 33: 18
+    # }
+
     ID_TO_TRAIN_ID = {
         7: 0, 8: 1, 11: 2, 12: 3, 13: 4, 17: 5,
-        19: 6, 20: 7, 21: 8, 22: 9, 23: 10, 24: 11, 25: 12,
-        26: 13, 27: 14, 28: 15, 31: 16, 32: 17, 33: 18
+        19: 5, 20: 5, 21: 6, 22: 7, 23: 8, 24: 9, 25: 9,
+        26: 10, 27: 10, 28: 10, 31: 10, 32: 11, 33: 11
     }
+
     TRAIN_ID_TO_COLOR = [(128, 64, 128), (244, 35, 232), (70, 70, 70), (102, 102, 156),
                                   (190, 153, 153), (153, 153, 153), (250, 170, 30), (220, 220, 0),
                                   (107, 142, 35), (152, 251, 152), (70, 130, 180), (220, 20, 60),
@@ -125,6 +139,7 @@ class CityscapesTranslation(BaseDataset):
                                          os.path.join(data_folder, split), os.path.join(label_folder, split),
                                          id_to_train_id=CityscapesTranslation.ID_TO_TRAIN_ID,
                                          train_id_to_color=CityscapesTranslation.TRAIN_ID_TO_COLOR, **kwargs)
+        self.ignore_label = 12
 
     def parse_label_file(self, label_list_file):
         with open(label_list_file, "r") as f:

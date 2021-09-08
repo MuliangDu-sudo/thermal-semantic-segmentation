@@ -21,7 +21,7 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 MODEL_ROOT_PATH = './checkpoints/semantic_segmentation'
 
 
-def seg_validate(args, sem_net, val_data, loss_func, device, vis=None):
+def seg_validate(args, sem_net, val_data, loss_func, device, vis=None, num_classes=13):
     print('validating...')
     val_loss = AverageMeter('val_loss', ':3.4f')
     sem_net.eval()
@@ -76,7 +76,7 @@ def seg_validate(args, sem_net, val_data, loss_func, device, vis=None):
 
     label_list = np.concatenate(label_list)
     prediction_list = np.concatenate(prediction_list)
-    acc, acc_cls, mean_iu, fwavacc, cls_iu = evaluate(prediction_list, label_list, args.num_classes)
+    acc, acc_cls, mean_iu, fwavacc, cls_iu = evaluate(prediction_list, label_list, num_classes)
     return mean_iu, val_loss.avg, cls_iu
 
 

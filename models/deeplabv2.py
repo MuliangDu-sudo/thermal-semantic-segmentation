@@ -199,16 +199,16 @@ class Classifier_Module2(nn.Module):
         for i in range(len(self.conv2d_list) - 1):
             out = torch.cat( (out, self.conv2d_list[i+1](x)), 1)
         out = self.bottleneck(out)
+        out_dict = {}
         if get_feat:
-            out_dict = {}
             out = self.head[0](out)
             out_dict['feat'] = out
             out = self.head[1](out)
             out_dict['out'] = out
-            return out_dict
         else:
             out = self.head(out)
-            return out
+            out_dict['out'] = out
+        return out_dict
 
 class ResNet101(nn.Module):
     def __init__(self, block, layers, num_classes, BatchNorm, bn_clr=False, num_channels=3, get_feat=False):

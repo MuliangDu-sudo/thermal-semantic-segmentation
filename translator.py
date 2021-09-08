@@ -87,9 +87,10 @@ def translate(args):
             translations = source_reverse_transform(translations)
             path_split = image_name.split("/")[:-1]     # to extract the path to save translation image
             image_save_path = "/".join(path_split)
+            image_save_path = os.path.join(args.root, image_save_path)
             if not os.path.exists(image_save_path):
                 os.makedirs(image_save_path)
-            translations.save(os.path.join(image_name))
+            translations.save(os.path.join(args.root, image_name))
 
             if i % 100 == 0:
                 print('translation: [{}/{}]'.format(i, len(translate_dataloader)))

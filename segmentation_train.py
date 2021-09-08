@@ -33,16 +33,17 @@ def seg_train(args, sem_net, data, loss_func, optim, device, vis, epoch, loss_di
     sem_net.train()
     i = 0
     for item in data:
-        image = item[0].to(device)
-        label = item[1].to(device)
+        image = item['image'].to(device)
+        label = item['label'].to(device)
         # print('label in main.')
         # print(torch.unique(label))
         optim.zero_grad()
-        if args.with_feat:
-            prediction, feature = sem_net(image)
-        else:
-            prediction = sem_net(image)
-        prediction = torch.nn.Upsample(size=(256, 512), mode='bilinear', align_corners=True)(prediction)
+        # if args.with_feat:
+        #     prediction, feature = sem_net(image)
+        # else:
+        #     prediction = sem_net(image)
+        prediction = sem_net(image)
+        prediction = torch.nn.Upsample(size=(256, 512), mode='bilinear', align_corners=True)(prediction['out'])
         loss = loss_func(prediction, label)
         loss.backward()
         optim.step()
@@ -92,6 +93,11 @@ def seg_main(args, logger):
         # T.Normalize((0.5,), (0.5,))
     ])
 
+    val_transform = T.Compose([
+        T.Resize((512, 256)),
+        T.ToTensor(),
+        ])
+
     validation_split = .2
     shuffle_dataset = True
     random_seed = 42
@@ -108,12 +114,12 @@ def seg_main(args, logger):
         source_dataset = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=train_transform,
                                   grayscale=args.grayscale, with_label=True)
     elif args.dataset == 'freiburg_translation':
-        source_dataset = Freiburg('datasets/freiburg', split='train', domain='RGB', transforms=train_transform,
+        source_dataset = Freiburg(args=args, root='datasets/freiburg', split='train', domain='RGB', transforms=train_transform,
                                   with_label=True, segmentation_mode=True, translation_name=args.translation_name)
     else:
         raise ValueError('dataset does not exist.')
 
-    target_val_dataset = FreiburgTest('datasets/freiburg', split='test', domain='IR', transforms=train_transform,
+    target_val_dataset = FreiburgTest(args=args, root='datasets/freiburg', split='test', domain='IR', transforms=val_transform,
                                   with_label=True)
 
     logger.info('Dataset has been created. Train with {}, validate with {}.'.format(source_dataset.__class__.__name__ +
@@ -143,8 +149,9 @@ def seg_main(args, logger):
                                                                                pretrained_backbone=False, with_feat=args.with_feat).to(device)
         net = Deeplab(torch.nn.BatchNorm2d, num_classes=args.num_classes, num_channels=1, freeze_bn=False).to('cuda')
     elif args.net_mode == 'three_channels':
-        net = semantic_segmentation_models.deeplabv2_resnet101(num_classes=args.num_classes,
-                                                                               pretrained_backbone=False).to(device)
+        # net = semantic_segmentation_models.deeplabv2_resnet101(num_classes=args.num_classes,
+        #                                                                        pretrained_backbone=False).to(device)
+        net = Deeplab(torch.nn.BatchNorm2d, num_classes=args.num_classes, num_channels=3, freeze_bn=False).to('cuda')
     else:
         raise ValueError('net mode does not exist.')
 
@@ -169,7 +176,7 @@ def seg_main(args, logger):
     for epoch in range(restart_epoch, restart_epoch+args.epochs):
         print("--------START TRAINING [EPOCH: {}]--------".format(epoch))
         seg_train(args, net, train_dataloader, loss_function, optimizer, device, visualizer, epoch, loss_dict, logger)
-        mean_iu, val_loss, class_iou = seg_validate(args, net, val_dataloader, loss_function, device, visualizer)
+        mean_iu, val_loss, class_iou = seg_validate(args, net, val_dataloader, loss_function, device, visualizer, num_classes=args.num_classes)
         scheduler.step(val_loss)
 
         if val_loss < lowest_val_loss:
@@ -188,16 +195,18 @@ def seg_main(args, logger):
         print('mean iou score: ' + str(mean_iu))
         logger.info('mean iou score: ' + str(mean_iu))
         for k, v in class_iou.items():
-            logger.info('train set class {}: {}'.format(k, v))
-
-        mean_iu, val_loss, class_iou = seg_validate(args, net, target_val_dataloader, loss_function, device, visualizer)
-        fmt_str = 'target test dataset mean iou score: ' + str(mean_iu)
-        logger.info(fmt_str)
-        print(fmt_str)
-        for k, v in class_iou.items():
-            fmt_str = 'target set class {}: {}'.format(k, v)
+            fmt_str = 'source valid set class {}: {}'.format(k, v)
             logger.info(fmt_str)
             print(fmt_str)
+
+        # mean_iu, val_loss, class_iou = seg_validate(args, net, target_val_dataloader, loss_function, device, visualizer, num_classes=13)
+        # fmt_str = 'target test dataset mean iou score: ' + str(mean_iu)
+        # logger.info(fmt_str)
+        # print(fmt_str)
+        # for k, v in class_iou.items():
+        #     fmt_str = 'target set class {}: {}'.format(k, v)
+        #     logger.info(fmt_str)
+        #     print(fmt_str)
 
 
 if __name__ == '__main__':

@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 import time
 from utils import transforms as T
 from PIL import ImageFile
+from utils import FocalLoss
 
 
 class SelfTrain:
@@ -24,6 +25,7 @@ class SelfTrain:
         self.objective_vectors_num = torch.zeros([self.num_classes]).to(device)
         self.logger = logger
         self.seg_loss = torch.nn.CrossEntropyLoss(ignore_index=args.ignore_index, reduction='mean')
+        # self.seg_loss = FocalLoss(gamma=2)
         self.scale_rate = 4
         self.device = device
 
@@ -73,7 +75,7 @@ class SelfTrain:
             rce = self.rce(target_out['out'], threshold_arg.reshape([batch, w, h]).clone())     # why reshape
             loss_target_pseudo = self.args.rce_alpha * loss_target_pseudo + self.args.rce_beta * rce
 
-        loss_target_pseudo.backward()
+        # loss_target_pseudo.backward()
         self.optimizer_seg.step()
 
         if self.args.moving_prototype: #update prototype

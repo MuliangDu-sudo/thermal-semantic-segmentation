@@ -192,9 +192,11 @@ def cityscapes_txt(root, data_folder, split):
     :return: txt file of files paths
     """
     im_dir: str = os.path.join(root, data_folder, split)
-    list_file = open(r"{}/image_list/{}_{}.txt".format(root, data_folder, split), "w+")
+    if not os.path.exists(os.path.join('datasets/source_dataset', 'image_list')):
+        os.makedirs(os.path.join('datasets/source_dataset', 'image_list'))
+    list_file = open(r"{}/image_list/{}_{}.txt".format('datasets/source_dataset', data_folder, split), "w+")
     if data_folder == 'leftImg8bit' or data_folder == 'translation':
-        print('im here')
+        print('im here city')
         for dirpath, dirnames, filenames in os.walk(im_dir):
             for filename in filenames:
                 list_file.write(os.path.join(dirpath, filename)+'\n')
