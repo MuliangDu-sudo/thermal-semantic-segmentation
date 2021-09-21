@@ -157,7 +157,7 @@ def seg_main(args, logger):
 
     restart_epoch = 0
     best_score = 0
-    lowest_val_loss = 1000
+    lowest_val_loss = 0.3121326912093807
     if args.load_model:
         load_checkpoint = torch.load(os.path.join(MODEL_ROOT_PATH, args.checkpoint_name))
         restart_epoch = load_checkpoint['epoch'] + 1
@@ -165,7 +165,7 @@ def seg_main(args, logger):
         #     lowest_val_loss = load_checkpoint['val_loss']
         print('loading trained model. start from epoch {}. Last validation loss is {}'.format(restart_epoch, lowest_val_loss))
         net.load_state_dict(load_checkpoint['sem_net_state_dict'])
-        best_score = load_checkpoint['best_score']
+        #best_score = load_checkpoint['best_score']
         logger.info('successfully loaded model {}. Resume from epoch {}. Best score is {}'.format(args.checkpoint_name, restart_epoch, best_score))
 
     optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
@@ -199,14 +199,14 @@ def seg_main(args, logger):
             logger.info(fmt_str)
             print(fmt_str)
 
-        # mean_iu, val_loss, class_iou = seg_validate(args, net, target_val_dataloader, loss_function, device, visualizer, num_classes=13)
-        # fmt_str = 'target test dataset mean iou score: ' + str(mean_iu)
-        # logger.info(fmt_str)
-        # print(fmt_str)
-        # for k, v in class_iou.items():
-        #     fmt_str = 'target set class {}: {}'.format(k, v)
-        #     logger.info(fmt_str)
-        #     print(fmt_str)
+        mean_iu, val_loss, class_iou = seg_validate(args, net, target_val_dataloader, loss_function, device, visualizer, num_classes=13)
+        fmt_str = 'target test dataset mean iou score: ' + str(mean_iu)
+        logger.info(fmt_str)
+        print(fmt_str)
+        for k, v in class_iou.items():
+            fmt_str = 'target set class {}: {}'.format(k, v)
+            logger.info(fmt_str)
+            print(fmt_str)
 
 
 if __name__ == '__main__':

@@ -347,7 +347,8 @@ def freiburg_prediction_visualize(predictions, palette):
     11  |   motor-, bicycle    | (119, 11, 32)
     *   |   unlabeled          | (0, 0, 0)
     """
-
+    # predictions = predictions.cpu().numpy().astype(np.uint8)
+    # new_predictions = Image.fromarray(np.squeeze(predictions, axis=0)).convert('P')
     new_predictions = Image.fromarray(predictions.astype(np.uint8)).convert('P')    # convert to 8-bit colored image
     new_predictions.putpalette(palette)
     return new_predictions

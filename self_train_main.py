@@ -5,7 +5,7 @@ import os
 import numpy as np
 from models import Deeplab
 import torch.nn.functional as F
-from data import Freiburg, FreiburgTest
+from data import Freiburg, FreiburgTest, CityscapesTranslation
 from segmentation_evaluate import seg_validate
 from utils import get_composed_augmentations, get_logger, AverageMeter, ProgressMeter
 from torch.utils.data import DataLoader
@@ -31,6 +31,8 @@ def main(args, logger):
 
     source_dataset = Freiburg(args=args, root='datasets/freiburg', split='train', domain='RGB', translation_name=args.translation_name,
                               segmentation_mode=True, transforms=train_transform)
+    # source_dataset = CityscapesTranslation('datasets/source_dataset', data_folder='translation',
+    #                                 transforms=train_transform)
     target_dataset = Freiburg(args=args, root='datasets/freiburg', split='train', domain='IR', segmentation_mode=True,
                               self_train=args.self_train, augmentations=get_composed_augmentations(args))
     target_val_dataset = FreiburgTest(args=args, root='datasets/freiburg', split='test', domain='IR', transforms=val_transform,
@@ -48,6 +50,7 @@ def main(args, logger):
     restart_epoch = 0
     best_score = 0
     lowest_val_loss = 1000
+    highest_mean_iu = 0.52
 
     if args.load_model:
         load_checkpoint = torch.load(os.path.join(args.model_root_path, args.checkpoint_name))
@@ -63,9 +66,9 @@ def main(args, logger):
     optimizer_seg = torch.optim.Adam(seg_net.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer_seg, 'min', verbose=True)
     self_training = SelfTrain(args, seg_net, ema_net, optimizer_seg, device, logger)
-
-    objective_vectors = torch.load(os.path.join(args.root,
-                                                'prototypes_on_{}_from_{}'.format(opt.tgt_dataset, opt.model_name)))
+    objective_vectors_path = os.path.join(args.root, 'prototypes',
+                                          "prototypes_on_{}_from_{}".format(args.target_dataset, args.checkpoint_name.replace('.pth', '')))
+    objective_vectors = torch.load(objective_vectors_path)
     self_training.objective_vectors = torch.Tensor(objective_vectors).to(0)
 
     for epoch in range(restart_epoch, restart_epoch+args.epochs):
@@ -80,8 +83,8 @@ def main(args, logger):
 
             target_image = target_data['image'].to(device)
             target_image_full = target_data['image_full'].to(device)
+            target_label = target_data['label'].to(device)
             target_weak_params = target_data['weak_params']
-
             target_label_hard = target_data['label_hard'].to(device) if 'label_hard' in target_data.keys() else None
             target_label_soft = target_data['label_soft'].to(device) if 'label_soft' in target_data.keys() else None
 
@@ -95,7 +98,7 @@ def main(args, logger):
             optimizer_seg.zero_grad()
 
             loss_target_pseudo, loss_source = self_training.step(source_image, source_label, target_image, target_image_full,
-                                                                 target_label_soft, target_label_hard, target_weak_params)
+                                                                 target_label_soft, target_label_hard, target_weak_params, target_label)
             pseudo_loss.update(loss_target_pseudo.item(), target_image.size(0))
             s_loss.update(loss_source.item(), target_image.size(0))
             if i % 10 == 0:
@@ -111,13 +114,30 @@ def main(args, logger):
                     logger.info(fmt_str)
                     print(fmt_str)
 
+                scheduler.step(mean_iu)
+
+                if mean_iu > highest_mean_iu:
+                    fmt_str = 'val loss reduced from {} to {}! Saving...'.format(lowest_val_loss, val_loss)
+
+                    highest_mean_iu = mean_iu
+                    torch.save({
+                        'epoch': epoch,
+                        'sem_net_state_dict': seg_net.state_dict(),
+                        'highest_mean_iu': highest_mean_iu,
+                        "objective_vectors": self_training.objective_vectors
+                    }, os.path.join(args.root, args.model_root_path, 'best'+args.new_checkpoint_name))
+                else:
+                    fmt_str = 'Model not improved.'
+                print(fmt_str)
+
             i += 1
             args.iter_counter += 1
         torch.save({
             'epoch': epoch,
             'sem_net_state_dict': seg_net.state_dict(),
-            'val_loss': lowest_val_loss,
-        }, os.path.join(args.model_root_path, args.new_checkpoint_name))
+            'highest_mean_iu': highest_mean_iu,
+            "objective_vectors": self_training.objective_vectors
+        }, os.path.join(args.root, args.model_root_path, 'last'+args.new_checkpoint_name))
 
 
 if __name__ == "__main__":
@@ -129,12 +149,15 @@ if __name__ == "__main__":
     parser.add_argument('--hflip', type=float, default=0.5, help='random flip probility')
     parser.add_argument('--proto_rectify', default=True)
     parser.add_argument('--load_model', type=bool, default=True, help='whether to load trained model')
+    # parser.add_argument('-checkpoint_name', default='256_cityscapes_rgb2freiburg_ir_segmentation.pth')
+    # parser.add_argument('-new_checkpoint_name', default='256_cityscapes_rgb2freiburg_ir_proto_segmentation.pth')
     parser.add_argument('-checkpoint_name', default='256_freiburg_rgb2ir_segmentation.pth')
-    parser.add_argument('-new_checkpoint_name', default='256_freiburg_rgb2ir_onlytarget_segmentation.pth')
+    parser.add_argument('-new_checkpoint_name', default='256_freiburg_rgb2ir_tem_0.5_thres_0.3_segmentation.pth')
     parser.add_argument('-batch_size', default=4)
     parser.add_argument('--use_saved_pseudo', type=bool, default=True, help='whether to use saved pseudo')
     parser.add_argument('--self_train', type=bool, default=True, help='whether to train with self-training')
     parser.add_argument('--path_soft', type=str, default='')
+    parser.add_argument('--path_lp', type=str, default='')
     parser.add_argument('-pseudo_type', default='soft')
     parser.add_argument('-translation_name', type=str, default='freiburg_rgb2ir_130epochs')
     parser.add_argument('--model_root_path', type=str, default='./checkpoints/semantic_segmentation')
@@ -143,7 +166,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_classes', default=13)
     parser.add_argument('--ignore_index', default=12)
     parser.add_argument('--ema', default=True)
-    parser.add_argument('--proto_temperature', type=float, default=1.0)
+    parser.add_argument('--proto_temperature', type=float, default=0.5)
     parser.add_argument("--train_thred", default=0, type=float)
     parser.add_argument("--rce", default=True, type=bool)
     parser.add_argument("--rce_alpha", default=0.1, type=float, help="loss weight for symmetry cross entropy loss")
@@ -154,8 +177,12 @@ if __name__ == "__main__":
     parser.add_argument('--iter_counter', default=0)
     parser.add_argument('--baseline', default=False)
     parser.add_argument('--generator_type', default=None)
+    parser.add_argument('--target_dataset', default='freiburg_ir')
+    parser.add_argument("--threshold", default=0.3, type=float)
     args_ = parser.parse_args()
     args_.path_soft = os.path.join(args_.root, 'pseudo_labels', args_.pseudo_type, args_.checkpoint_name.replace('.pth', ''))
+    args_.path_lp = os.path.join(args_.root, 'pseudo_labels', 'hard',
+                                   args_.checkpoint_name.replace('.pth', ''))
 
     args_.logdir = os.path.join('logs', 'self-training', args_.new_checkpoint_name.replace('.pth', ''))
     if not os.path.exists(args_.logdir):

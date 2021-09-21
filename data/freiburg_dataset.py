@@ -102,25 +102,32 @@ class Freiburg(data.Dataset):
             label = np.array(Image.open(os.path.join(label_name)).resize((960, 320), Image.NEAREST), dtype=np.uint8)
             label = label[:, 150:850]
             label = Image.fromarray(label, mode='L')
-
             label_hard, label_soft, weak_params = None, None, None
             if self.self_train:
                 if self.args.proto_rectify:
                     label_soft = np.load(
                         os.path.join(self.args.path_soft, os.path.basename(only_img_name).replace('.png', '.npy')))
-                else:
+                # else:
                     label_hard_path = os.path.join(self.args.path_lp, os.path.basename(only_img_name))
                     label_hard = Image.open(label_hard_path)
-                    label_hard = label_hard.resize(image.size, Image.NEAREST)
+                    # label_hard = label_hard.resize(image.size, Image.NEAREST)
                     label_hard = np.array(label_hard, dtype=np.uint8)
                     if self.args.threshold:
                         conf = np.load(
                             os.path.join(self.args.path_lp, os.path.basename(only_img_name).replace('.png', '_conf.npy')))
                         label_hard[conf <= self.args.threshold] = self.args.ignore_index
+                        # label_hard[label_hard != 5] = self.args.ignore_index
+                        label_hard_copy = self.args.ignore_index * np.ones(label_hard.shape, dtype=np.int64)
+                        for i in [5, 11]:
+                            label_hard_copy[label_hard == i] = i
+                        # label_hard[label_hard not in [5, 11]] = self.args.ignore_index
+                        label_hard = Image.fromarray(np.uint8(label_hard_copy)).resize(image.size, Image.NEAREST)
+                        label_hard = np.array(label_hard, dtype=np.uint8)
+
                 image_full = image.copy()
                 image, label, label_hard, label_soft, weak_params = self.augmentations(image, label, label_hard, label_soft)
                 input_dict['image'] = (T.ToTensor()(image)).float()
-                input_dict['label'] = (T.ToTensor()(label)).long()
+                input_dict['label'] = T.ToTensor()(label).long()
                 input_dict['label_hard'] = (T.ToTensor()(label_hard)).long() if label_hard is not None else None
                 input_dict['label_soft'] = label_soft.float() if label_soft is not None else None
                 input_dict['weak_params'] = weak_params
@@ -132,7 +139,7 @@ class Freiburg(data.Dataset):
                 input_dict['image'] = image
                 input_dict['label'] = np.array(label, dtype=np.int64)
         else:
-            input_dict['img'] = self.transforms(image)
+            input_dict['image'] = self.transforms(image)
 
         if self.translation_mode:
             input_dict['img'] = self.transforms(image)

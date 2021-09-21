@@ -52,7 +52,7 @@ def seg_validate(args, sem_net, val_data, loss_func, device, vis=None, num_class
         #                opts=dict(title='prediction [{}]'.format(i), caption='prediction [{}]'.format(i)))
         # i += 1
         if args.visualize_prediction is not None:
-            save_path_root = os.path.join(args.root, 'predictions/{}'.format(args.checkpoint_name.replace('.pth', '')))
+            save_path_root = os.path.join(args.root, 'predictions/{}'.format(args.new_checkpoint_name.replace('.pth', '')))
             if args.baseline:
                 save_path_root = 'baseline_predictions/apply_{}_image_on_{}_domain_model'.format(args.target_domain, args.source_domain,)
             if args.generator_type == 't2s':

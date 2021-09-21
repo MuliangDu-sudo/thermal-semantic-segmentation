@@ -26,15 +26,17 @@ def train_parse():
 
 def translation_parse():
     parser = argparse.ArgumentParser(description='translation options')
-    parser.add_argument('--root', type=str, default='/data/data_bank/muliang_gp/Prototypical',
-                        help='pseudo label update thred')
+    # parser.add_argument('--root', type=str, default='/data/data_bank/muliang_gp/Prototypical',
+    #                     help='pseudo label update thred')
+    parser.add_argument('--root', type=str, default='',
+                                             help='pseudo label update thred')
     parser.add_argument('-dataset', type=str, default='Cityscapes', help='dataset to be translated.')
     parser.add_argument('-batch_size', type=int, default=1, help='batch size for translation.')
     parser.add_argument('-checkpoint_name', type=str, default='cityscapes_rgb2freiburg_ir.pth',
                         help='the name of trained model.')
     parser.add_argument('-input_nc', type=int, default=3, help='number of generator input channel.')
     parser.add_argument('-output_nc', type=int, default=1, help='number of generator output channel.')
-    parser.add_argument('-save_image_size', type=tuple, default=(320, 700), help='images are save with this size.')
+    parser.add_argument('-save_image_size', type=tuple, default=(1024, 2048), help='images are save with this size.')
     parser.add_argument('-normalize', type=tuple, default=(0.5, 0.5, 0.5),
                         help='normalization of input data.')
     parser.add_argument('-denormalize', type=tuple, default=(0.5, ),
@@ -50,11 +52,11 @@ def seg_parse():
     parser = argparse.ArgumentParser(description='segmentation options')
     parser.add_argument('--root', type=str, default='/data/data_bank/muliang_gp/Prototypical',
                         help='pseudo label update thred')
-    parser.add_argument('-load_model', default=False, help='train with pretrained model.')
+    parser.add_argument('-load_model', default=True, help='train with pretrained model.')
     parser.add_argument('-epochs', default=50, help='number of epochs to train.')
     parser.add_argument('-batch_size', type=int, default=8, help='batch size.')
     parser.add_argument('-val_batch_size', type=int, default=8, help='validation batch size.')
-    parser.add_argument('-checkpoint_name', type=str, default='pure_freiburg_rgb_13_segmentation.pth',
+    parser.add_argument('-checkpoint_name', type=str, default='256_cityscapes_rgb2freiburg_ir_segmentation.pth',
                         help='the name of trained model.')
     parser.add_argument('-new_checkpoint_name', type=str, default='256_cityscapes_rgb2freiburg_ir_segmentation.pth',
                         help='the name of trained model. If don\'t want to create new checkpoint, use same name as checkpoint_name.')
@@ -80,6 +82,7 @@ def seg_parse():
 
 def evaluation_parse():
     parser = argparse.ArgumentParser(description='segmentation options')
+    parser.add_argument('--root', default='')
     parser.add_argument('-val_batch_size', type=int, default=1, help='validation batch size.')
     parser.add_argument('-checkpoint_name', type=str, default='256_freiburg_rgb2ir_segmentation.pth',
                         help='the name of trained model.')

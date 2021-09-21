@@ -40,7 +40,7 @@ def calc_prototype(args):
     if args.dataset == 'flir':
         dataset = TrainTDataset('datasets/target_dataset', transforms=target_train_transform)
     elif args.dataset == 'freiburg_ir':
-        dataset = Freiburg('datasets/freiburg', split='train', domain='IR', transforms=target_train_transform,
+        dataset = Freiburg(args, root='datasets/freiburg', split='train', domain='IR', transforms=target_train_transform,
                                   with_label=False)
     else:
         raise ValueError('target dataset does not exist.')
@@ -63,7 +63,7 @@ def calc_prototype(args):
     for epoch in range(args.epochs):
         for i, data_i in enumerate(train_target_loader):
 
-            image = data_i['img'].to(device)
+            image = data_i['image'].to(device)
 
             net.eval()
 
@@ -172,6 +172,6 @@ class Class_Features:
 if __name__ == "__main__":
     ImageFile.LOAD_TRUNCATED_IMAGES = True
     args_ = calc_proto_parse().parse_args()
-    args_.checkpoint_name = '256_freiburg_rgb2ir_segmentation.pth'
+    args_.checkpoint_name = '256_cityscapes_rgb2freiburg_ir_segmentation.pth'
     args_.root = '/data/data_bank/muliang_gp/Prototypical'
     calc_prototype(args_)

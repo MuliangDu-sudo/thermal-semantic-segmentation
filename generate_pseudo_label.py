@@ -65,7 +65,7 @@ def generate_pl(net, dataloader, device, args):
     if not os.path.exists(pseudo_save_path):
         os.makedirs(pseudo_save_path)
 
-    for data_i in dataloader:
+    for i, data_i in enumerate(dataloader):
         images = data_i['image'].to(device)
         filename = data_i['img_path']
 
@@ -82,7 +82,7 @@ def generate_pl(net, dataloader, device, args):
                 flip_out['out'] = F.interpolate(F.softmax(flip_out['out'], dim=1), size=images.size()[2:], mode='bilinear', align_corners=True)
                 out['out'] = F.interpolate(F.softmax(out['out'], dim=1), size=images.size()[2:], mode='bilinear', align_corners=True)
                 out['out'] = (out['out'] + fliplr(flip_out['out'])) / 2
-            confidence, pseudo = out['out'].max(1, keepdim=True)
+            confidence, pseudo = torch.nn.Softmax(dim=1)(out['out']).max(1, keepdim=True)
 
             for k in range(images.shape[0]):
                 name = os.path.basename(filename[k])
@@ -92,18 +92,20 @@ def generate_pl(net, dataloader, device, args):
 
                 pseudo_rgb.save(os.path.join(pseudo_save_path, name[:-4] + '_color.png'))
                 np.save(os.path.join(pseudo_save_path, name.replace('.png', '_conf.npy')), confidence[k, 0].cpu().numpy().astype(np.float16))
+        if i % 100 == 0:
+            print('pseudo label generation: [{}/{}]'.format(i, len(dataloader)))
 
 
 if __name__ == "__main__":
     ImageFile.LOAD_TRUNCATED_IMAGES = True
     parser = argparse.ArgumentParser(description="config")
     parser.add_argument('--root', type=str, default='/data/data_bank/muliang_gp/Prototypical', help='pseudo label update thred')
-    parser.add_argument('--soft', default=True, help='save soft pseudo label')
+    parser.add_argument('--soft', default=False, help='save soft pseudo label')
     parser.add_argument('--flip', default=False)
     parser.add_argument('-checkpoint_name', default='256_freiburg_rgb2ir_segmentation.pth')
     parser.add_argument('-batch_size', default=4)
     parser.add_argument('--dataset', default='freiburg_ir')
-    parser.add_argument('-pseudo_type', default='soft')
+    parser.add_argument('-pseudo_type', default='hard')
 
     args_ = parser.parse_args()
 

@@ -33,9 +33,9 @@ class Compose(object):
             img, mask, mask1, lpsoft, params = a(img, mask, mask1, lpsoft, params)
 
         if self.PIL2Numpy:
-            img, mask = np.array(img), np.array(mask, dtype=np.uint8)
+            img, mask = np.array(img), np.array(mask, dtype=np.int64)
             if mask1 is not None:
-                mask1 = np.array(mask1, dtype=np.uint8)
+                mask1 = np.array(mask1, dtype=np.int64)
         return img, mask, mask1, lpsoft, params
 
 
